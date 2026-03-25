@@ -1,0 +1,39 @@
+I have an Odoo 19 project with custom modules covering CRM, Purchase, 
+Inventory/Warehouse, Manufacturing, Accounting/Invoicing and custom integrations.
+
+Analyze all custom modules in this project and create a comprehensive 
+UAT (User Acceptance Testing) Excel sheet with the following:
+
+1. Cover Sheet with:
+   - Project name, version, date, tester name fields
+
+2. For each module create a separate sheet with test cases covering:
+   - Complete end-to-end business flow
+   - Integration points between modules
+   - Custom fields and custom buttons
+   - All CRUD operations (Create, Read, Update, Delete)
+
+3. Each test case must have these columns:
+   - Test Case ID (TC-001, TC-002...)
+   - Module Name
+   - Feature / Flow Name
+   - Pre-conditions (what must be ready before testing)
+   - Test Steps (non-technical, numbered, plain English)
+   - Expected Result (what should happen)
+   - Actual Result (blank - for tester to fill)
+   - Status (Pass / Fail / Blocked - dropdown)
+   - Remarks (blank - for tester to fill)
+   - Tested By (blank)
+   - Test Date (blank)
+
+4. Language must be simple, non-technical so end users can follow
+
+5. Cover all integration flows such as:
+   - CRM Lead → Sale Order → Purchase Order → 
+     Inventory Receipt → Manufacturing Order → 
+     Customer Invoice → Payment
+
+6. Include both positive test cases (happy path) and 
+   negative test cases (wrong inputs, missing fields)
+
+Generate this as a complete Excel (.xlsx) file.
