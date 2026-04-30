@@ -1,14 +1,10 @@
-cd ~/Projects/Enconnex
-rm -rf odoo
+ls ~/Projects/Enconnex/odoo/odoo/addons/helpdesk/__manifest__.py
 
-cp -R ~/Downloads/source_code ~/Projects/Enconnex/odoo
+sed -i '' 's|addons_path = ./odoo/addons,./custom|addons_path = ./odoo/odoo/addons,./custom|' ~/Projects/Enconnex/odoo.conf
 
-ls ~/Projects/Enconnex/odoo
+cat ~/Projects/Enconnex/odoo.conf | grep addons_path
 
 
-ls ~/Projects/Enconnex/odoo/odoo | head -10
-
-ls ~/Projects/Enconnex/odoo/addons/helpdesk/__manifest__.py
 
 
 
