@@ -1,0 +1,39 @@
+echo "===== SYSTEM CHECK =====" && \
+echo "" && \
+echo "--- macOS Version ---" && sw_vers && \
+echo "" && \
+echo "--- Chip Type (Intel or Apple Silicon) ---" && uname -m && \
+echo "" && \
+echo "--- Homebrew ---" && (brew --version 2>/dev/null || echo "NOT INSTALLED") && \
+echo "" && \
+echo "--- Homebrew Path ---" && (which brew 2>/dev/null || echo "NOT FOUND") && \
+echo "" && \
+echo "--- Python 3 ---" && (python3 --version 2>/dev/null || echo "NOT INSTALLED") && \
+echo "Path: $(which python3 2>/dev/null || echo NONE)" && \
+echo "" && \
+echo "--- Python 3.11 specifically ---" && (python3.11 --version 2>/dev/null || echo "NOT INSTALLED") && \
+echo "" && \
+echo "--- Python 3.12 specifically ---" && (python3.12 --version 2>/dev/null || echo "NOT INSTALLED") && \
+echo "" && \
+echo "--- pip3 ---" && (pip3 --version 2>/dev/null || echo "NOT INSTALLED") && \
+echo "" && \
+echo "--- Git ---" && (git --version 2>/dev/null || echo "NOT INSTALLED") && \
+echo "" && \
+echo "--- PostgreSQL ---" && (psql --version 2>/dev/null || echo "NOT INSTALLED") && \
+echo "" && \
+echo "--- PostgreSQL Service Status ---" && (brew services list 2>/dev/null | grep postgres || echo "Homebrew not installed or postgres not via brew") && \
+echo "" && \
+echo "--- Node.js (for Claude Code) ---" && (node --version 2>/dev/null || echo "NOT INSTALLED") && \
+echo "" && \
+echo "--- npm ---" && (npm --version 2>/dev/null || echo "NOT INSTALLED") && \
+echo "" && \
+echo "--- Existing Odoo folders in common locations ---" && \
+ls -la ~/Projects 2>/dev/null || echo "No ~/Projects folder" && \
+ls -la ~/Documents | grep -i odoo 2>/dev/null || echo "No Odoo folders in Documents" && \
+ls -la ~/Desktop | grep -i odoo 2>/dev/null || echo "No Odoo folders in Desktop" && \
+echo "" && \
+echo "--- Your home folder path ---" && echo $HOME && \
+echo "" && \
+echo "--- PostgreSQL databases (if postgres works) ---" && (psql -l 2>/dev/null | head -20 || echo "Cannot list databases") && \
+echo "" && \
+echo "===== END OF CHECK ====="
