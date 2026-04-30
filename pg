@@ -1,5 +1,6 @@
-pip install "cryptography<42" "pyOpenSSL<24" "urllib3<2"
+pip install --force-reinstall "cryptography==41.0.7" "pyOpenSSL==23.2.0" "urllib3==1.26.18"
 
+python -c "from cryptography.hazmat.backends.openssl.x509 import _Certificate; print('OK')"
 
 python odoo/odoo-bin -c odoo.conf -d enconnex_dev
 
