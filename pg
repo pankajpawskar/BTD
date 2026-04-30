@@ -1,2 +1,18 @@
-cd ~/Downloads
-unzip -o odoo-ps-psin-enconnexerp-main-1551370_2026-04-30_022800_test_nofs.zip -d enconnex-restore
+psql -U odoo -d enconnex_dev -f ~/Downloads/enconnex-restore/dump.sql
+
+
+SET
+SET
+CREATE TABLE
+CREATE TABLE
+ALTER TABLE
+COPY 1234
+...
+
+
+psql -U odoo -d enconnex_dev -c "SELECT COUNT(*) FROM res_partner;"
+
+
+cd ~/Projects/Enconnex
+source .venv/bin/activate
+python odoo/odoo-bin -c odoo.conf -d enconnex_dev
