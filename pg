@@ -1,18 +1,5 @@
-ls ~/Projects/Enconnex/odoo/odoo/addons/helpdesk/__manifest__.py
-
-sed -i '' 's|addons_path = ./odoo/addons,./custom|addons_path = ./odoo/odoo/addons,./custom|' ~/Projects/Enconnex/odoo.conf
-
-cat ~/Projects/Enconnex/odoo.conf | grep addons_path
+pip install "cryptography<42" "pyOpenSSL<24" "urllib3<2"
 
 
-
-
-
-ls -lh ~/Projects/Enconnex/odoo/odoo-bin
-
-cat ~/Projects/Enconnex/odoo.conf | grep addons_path
-
-cd ~/Projects/Enconnex
-source .venv/bin/activate
 python odoo/odoo-bin -c odoo.conf -d enconnex_dev
 
