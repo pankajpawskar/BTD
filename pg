@@ -1,8 +1,9 @@
-lsof -ti:8069 | xargs kill -9 2>/dev/null
+ls ~/Downloads/source_code/odoo/addons | wc -l
 
 
-cd ~/Projects/Enconnex
+  ls ~/Downloads/source_code/odoo/addons/helpdesk
+ls ~/Downloads/source_code/odoo/addons/web_studio
 
-git clone --depth 1 --branch 18.0 https://YOUR_TOKEN@github.com/odoo/enterprise.git enterprise
+ls ~/Downloads/source_code/odoo/addons/account_accountant
 
 
