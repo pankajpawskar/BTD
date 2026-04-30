@@ -1,18 +1,8 @@
-psql -U odoo -d enconnex_dev -f ~/Downloads/enconnex-restore/dump.sql
-
-
-SET
-SET
-CREATE TABLE
-CREATE TABLE
-ALTER TABLE
-COPY 1234
-...
-psql -U odoo -d enconnex_dev -c "SELECT COUNT(*) FROM ir_module_module WHERE state='installed';"
-
-psql -U odoo -d enconnex_dev -c "SELECT COUNT(*) FROM res_partner;"
+lsof -ti:8069 | xargs kill -9 2>/dev/null
 
 
 cd ~/Projects/Enconnex
-source .venv/bin/activate
-python odoo/odoo-bin -c odoo.conf -d enconnex_dev
+
+git clone --depth 1 --branch 18.0 https://YOUR_TOKEN@github.com/odoo/enterprise.git enterprise
+
+
