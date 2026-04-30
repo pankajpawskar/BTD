@@ -1,9 +1,26 @@
-ls ~/Downloads/source_code/odoo/addons | wc -l
+lsof -ti:8069 | xargs kill -9 2>/dev/null
+
+cd ~/Projects/Enconnex
+mv odoo odoo-backup
 
 
-  ls ~/Downloads/source_code/odoo/addons/helpdesk
-ls ~/Downloads/source_code/odoo/addons/web_studio
-
-ls ~/Downloads/source_code/odoo/addons/account_accountant
+ls ~/Projects/Enconnex
 
 
+cp -R ~/Downloads/source_code/odoo ~/Projects/Enconnex/odoo
+
+ls ~/Projects/Enconnex/odoo/addons/helpdesk/__manifest__.py
+
+ls ~/Projects/Enconnex/odoo/odoo-bin
+
+cat ~/Projects/Enconnex/odoo.conf | grep addons_path
+
+addons_path = ./odoo/addons,./custom
+
+sed -i '' 's|addons_path = ./odoo/addons,./enterprise,./custom|addons_path = ./odoo/addons,./custom|' ~/Projects/Enconnex/odoo.conf
+
+cat ~/Projects/Enconnex/odoo.conf | grep addons_path
+
+cd ~/Projects/Enconnex
+source .venv/bin/activate
+pip install pdfminer.six
