@@ -24,3 +24,17 @@ cat ~/Projects/Enconnex/odoo.conf | grep addons_path
 cd ~/Projects/Enconnex
 source .venv/bin/activate
 pip install pdfminer.six
+
+
+
+
+
+
+cp ~/Downloads/source_code/odoo-bin ~/Projects/Enconnex/odoo/odoo-bin
+
+
+chmod +x ~/Projects/Enconnex/odoo/odoo-bin
+
+ls -lh ~/Projects/Enconnex/odoo/odoo-bin
+
+
