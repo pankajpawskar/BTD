@@ -8,7 +8,7 @@ CREATE TABLE
 ALTER TABLE
 COPY 1234
 ...
-
+psql -U odoo -d enconnex_dev -c "SELECT COUNT(*) FROM ir_module_module WHERE state='installed';"
 
 psql -U odoo -d enconnex_dev -c "SELECT COUNT(*) FROM res_partner;"
 
