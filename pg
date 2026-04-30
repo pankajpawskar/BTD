@@ -4,4 +4,8 @@ export PATH="/opt/homebrew/opt/postgresql@15/bin:$PATH"
 
 cd ~/Projects/Enconnex
 source .venv/bin/activate
-pip install -r "/Users/Pankaj.Pawskar/Projects/Enconnex/custom/requirements.txt"
+pip install -r "/Users/Pankaj.Pawskar/Projects/Enconnex/custom/requirements.txt
+
+ls -lh ~/Downloads/*.zip
+
+-rw-r--r--  1 ... 1.0G ... odoo-ps-psin-enconnexerp-main-1551370_2026-04-30_022800_test_nofs.zip
