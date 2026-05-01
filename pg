@@ -1,6 +1,7 @@
-pip install --force-reinstall "cryptography==41.0.7" "pyOpenSSL==23.2.0" "urllib3==1.26.18"
+/Users/Pankaj.Pawskar/Projects/Enconnex/odoo/odoo-bin
 
-python -c "from cryptography.hazmat.backends.openssl.x509 import _Certificate; print('OK')"
+-c odoo.conf -d enconnex_dev
 
-python odoo/odoo-bin -c odoo.conf -d enconnex_dev
+/Users/Pankaj.Pawskar/Projects/Enconnex
 
+should already show Python 3.11 (Enconnex)
