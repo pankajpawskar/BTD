@@ -105,31 +105,25 @@ python odoo/odoo-bin -c odoo.conf -d bytedance_dev
 
 
 
-
------  
-
-
-
+-----
 
 cd ~/Projects/Bytedance
 source .venv/bin/activate
-python odoo/odoo-bin -c odoo.conf -d bytedance_dev shell --no-http <<'EOF'
-admin = env.ref('base.user_admin')
-admin.login = 'admin'
-admin.password = 'admin'
-env.cr.commit()
-print("DONE - login: admin / password: admin")
-EOF
+
+python -c "
+from passlib.context import CryptContext
+ctx = CryptContext(schemes=['pbkdf2_sha512'])
+print(ctx.hash('admin'))
+"
+
+ psql -U odoo -d bytedance_dev
+
+UPDATE res_users SET password='PASTE_HASH_HERE' WHERE id=2;
+\q
 
 
 python odoo/odoo-bin -c odoo.conf -d bytedance_dev
-http://localhost:8070/web/login
 
 
-
-----'
-
-
-psql -U odoo -d bytedance_dev -c "SELECT id, login FROM res_users ORDER BY id LIMIT 5;"
 
 
