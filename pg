@@ -103,3 +103,28 @@ python odoo/odoo-bin -c odoo.conf -d bytedance_dev
 
 
 
+
+
+
+-----  
+
+
+
+
+cd ~/Projects/Bytedance
+source .venv/bin/activate
+python odoo/odoo-bin -c odoo.conf -d bytedance_dev shell --no-http <<'EOF'
+admin = env.ref('base.user_admin')
+admin.login = 'admin'
+admin.password = 'admin'
+env.cr.commit()
+print("DONE - login: admin / password: admin")
+EOF
+
+
+python odoo/odoo-bin -c odoo.conf -d bytedance_dev
+http://localhost:8070/web/login
+
+
+
+
