@@ -27,6 +27,38 @@ export CPPFLAGS="-I/opt/homebrew/opt/postgresql@15/include -I/opt/homebrew/opt/o
 pip install -r odoo/requirements.txt
 
 
+----------------
+
+createdb -U odoo bytedance_dev
+
+
+cat > ~/Projects/Bytedance/odoo.conf << 'EOF'
+[options]
+addons_path = ./odoo/addons,./custom
+db_host = localhost
+db_port = 5432
+db_user = odoo
+db_password = False
+db_name = bytedance_dev
+http_port = 8070
+admin_passwd = admin
+log_level = info
+dev_mode = reload,qweb,xml
+EOF
+
+
+cd ~/Projects/Bytedance
+source .venv/bin/activate
+pip install pdfminer.six PyJWT astroid pylint
+
+cat ~/Projects/Bytedance/odoo.conf | grep -E "addons_path|db_name|http_port"
+
+addons_path = ./odoo/addons,./custom
+db_name = bytedance_dev
+http_port = 8070
+
+
+
 
 
 
