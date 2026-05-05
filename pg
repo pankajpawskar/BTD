@@ -89,4 +89,17 @@ psql -U odoo -d bytedance_dev -c "SELECT COUNT(*) FROM res_partner;"
 
 
 
+-----
+
+
+
+cd ~/Projects/Bytedance
+source .venv/bin/activate
+pip uninstall -y psycopg2 psycopg2-binary
+pip install psycopg2-binary
+
+
+python odoo/odoo-bin -c odoo.conf -d bytedance_dev
+
+
 
