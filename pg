@@ -5,4 +5,15 @@ cd ~/Projects/Bytedance
 git clone --depth 1 --branch 19.0 https://github.com/odoo/odoo.git odoo
 
 
+cd ~/Projects/Bytedance
+git clone https://github.com/raghuchandra22/Bytedance_WMS.git custom
+
+cd ~/Projects/Bytedance/custom
+git checkout Sandbox-19
+git pull origin Sandbox-19
+
+ls ~/Projects/Bytedance/custom | head -20
+
+
+
 
