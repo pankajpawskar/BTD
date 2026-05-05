@@ -127,3 +127,27 @@ python odoo/odoo-bin -c odoo.conf -d bytedance_dev
 
 
 
+-----
+
+
+
+Final cleanup — set up PyCharm for Bytedance
+Same as Enconnex setup:
+
+PyCharm → File → Open → select /Users/Pankaj.Pawskar/Projects/Bytedance → Open in New Window
+Bottom-right Python interpreter → Add → Existing → ~/Projects/Bytedance/.venv/bin/python
+Run → Edit Configurations → + → Python
+
+Name: Bytedance Odoo 19
+Script path: /Users/Pankaj.Pawskar/Projects/Bytedance/odoo/odoo-bin
+Parameters: -c odoo.conf -d bytedance_dev
+Working directory: /Users/Pankaj.Pawskar/Projects/Bytedance
+
+
+Apply → OK
+
+Stop the terminal Odoo first (Ctrl + C), then click ▶ in PyCharm.
+
+
+
+
