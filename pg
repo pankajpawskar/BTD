@@ -15,5 +15,18 @@ git pull origin Sandbox-19
 ls ~/Projects/Bytedance/custom | head -20
 
 
+cd ~/Projects/Bytedance
+python3.12 -m venv .venv
+
+source .venv/bin/activate
+pip install --upgrade pip wheel setuptools
+
+export LDFLAGS="-L/opt/homebrew/opt/postgresql@15/lib -L/opt/homebrew/opt/openssl@3/lib"
+export CPPFLAGS="-I/opt/homebrew/opt/postgresql@15/include -I/opt/homebrew/opt/openssl@3/include"
+
+pip install -r odoo/requirements.txt
+
+
+
 
 
