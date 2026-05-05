@@ -1,1 +1,8 @@
+mkdir -p ~/Projects/Bytedance
+cd ~/Projects/Bytedance
+
+
+git clone --depth 1 --branch 19.0 https://github.com/odoo/odoo.git odoo
+
+
 
