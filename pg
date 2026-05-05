@@ -71,6 +71,18 @@ psql -U odoo -d bytedance_dev -f ~/Downloads/bytedance-restore/dump.sql
 
 
 psql -U odoo -d bytedance_dev -c "SELECT COUNT(*) FROM ir_module_module WHERE state='installed';"
+------
+
+
+cd ~/Projects/Bytedance
+source .venv/bin/activate
+python odoo/odoo-bin -c odoo.conf -d bytedance_dev
+
+HTTP service (werkzeug) running on ...:8070
+
+
+ http://localhost:8070
+
 
 psql -U odoo -d bytedance_dev -c "SELECT COUNT(*) FROM res_partner;"
 
