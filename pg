@@ -127,4 +127,9 @@ http://localhost:8070/web/login
 
 
 
+----'
+
+
+psql -U odoo -d bytedance_dev -c "SELECT id, login FROM res_users ORDER BY id LIMIT 5;"
+
 
