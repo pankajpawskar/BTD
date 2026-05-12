@@ -1,0 +1,39 @@
+Got it. Let's walk through this end-to-end: branch creation → finding the issue → using Copilot to fix it → testing → PR.
+
+## Step 1: Make sure you're on a clean Sandbox-19
+
+Open PyCharm → Bytedance project. Open Terminal panel (bottom):
+
+cd ~/Projects/Bytedance/custom
+git status
+Should say: nothing to commit, working tree clean. If not, tell me what it shows.
+
+git checkout Sandbox-19
+git pull origin Sandbox-19
+## Step 2: Create a feature branch
+
+git checkout -b feature/fix-mfg-required-helpdesk
+Bottom of PyCharm should now show: feature/fix-mfg-required-helpdesk
+
+## Step 3: Find where mfg is defined
+
+Use PyCharm's search to find the field across all custom modules.
+
+**Press Cmd + Shift + F** (Find in Files)
+
+In the dialog:
+- Search box: mfg
+- "In project" scope
+- ClFindnd**
+
+You'll see matches. Look for onesPython fileses** (.py) inside custom/ — those define the field. Ignore matches in odoo/ core or .pyc files.
+
+The pattern you're looking for is something like:
+mfg = fields.Many2one(...)   # or fields.Char, fields.Selection
+Or in XML view files:
+<field name="mfg" .../>
+**Reply with:**
+- Output of git status
+- The list of files where mfg is found (just file paths, you can copy from PyCharm's find panel)
+
+Then I'll guide you to inspect them with Copilot's help.
