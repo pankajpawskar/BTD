@@ -37,3 +37,57 @@ Or in XML view files:
 - The list of files where mfg is found (just file paths, you can copy from PyCharm's find panel)
 
 Then I'll guide you to inspect them with Copilot's help.
+
+
+
+ROLE: You are a senior Odoo 19 developer helping me fix a bug.
+
+CONTEXT:
+- Project: Bytedance (Odoo 19)
+- Working folder: ./custom (only edit files here, never ./odoo)
+- Branch: feature/fix-mfg-required-helpdesk
+
+ERROR I'M GETTING:
+"The operation cannot be completed: Missing required value for the field 'MFG' (mfg) in Helpdesk Ticket."
+
+This appears when creating or updating a Helpdesk Ticket in Odoo.
+
+WHAT I NEED YOU TO DO:
+
+STEP 1 — Help me locate the field
+- Tell me exactly what to search for in the codebase to find the `mfg` field definition
+- It's likely in a custom module that extends helpdesk.ticket model
+- Tell me which file types to look at (.py for model, .xml for view)
+
+STEP 2 — After I share the code with you, do this analysis
+- Identify the file/line where `mfg` is defined with `required=True`
+- Explain WHY it's required (was it a business rule? legacy code?)
+- Check if there's a default value or compute method that should set it
+- Check the view XML — is the field shown to user? Is it readonly?
+
+STEP 3 — Suggest the SAFEST fix (with reasoning):
+   Option A: Make it optional (remove required=True) — when is this safe?
+   Option B: Add a sensible default value — when is this best?
+   Option C: Add a compute method — when is this needed?
+   Option D: Make the field visible in the form so user can fill it — when is this best?
+
+   Tell me which option YOU recommend for this case and why.
+
+STEP 4 — Show the EXACT code change
+- Show the full modified field definition or method
+- Show any __manifest__.py update if needed
+- Show any view XML changes if the user needs to see the field
+
+STEP 5 — Tell me how to test
+- Which screen in Odoo to open
+- What action to perform
+- What I should see after the fix
+
+CONSTRAINTS:
+- Make MINIMAL changes — don't refactor unrelated code
+- Don't suggest schema migration unless absolutely necessary
+- Follow Odoo conventions (inherit, don't replace)
+- Flag any change that could affect existing tickets in production data
+- If you're not sure about Odoo 19 API, say so explicitly
+
+FIRST RESPONSE: Just tell me Step 1 — what to search for. Then wait for me to share the code I find.
