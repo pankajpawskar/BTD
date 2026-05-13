@@ -1,69 +1,66 @@
-Got it. Let's get PyCharm fully reconfigured for the new Enterprise setup, so you can work normally going forward.
+Good news. Situation is much cleaner than I thought. Let me decode:
 
-## Step 1: Stop the running Odoo
+## What I see ✅
 
-In Terminal where Odoo is running:
 ```
-Ctrl + C
-```
-
-Wait for prompt to return.
-
-## Step 2: Open Bytedance project in PyCharm
-
-If already open, close it: **File → Close Project**
-
-Then: **File → Open** → select `/Users/Pankaj.Pawskar/Projects/Bytedance` → **Open**
-
-If asked "Trust Project?" → **Trust**
-
-Wait 2-5 min for PyCharm to re-index (status bar shows progress at bottom).
-
-## Step 3: Verify Python interpreter
-
-Bottom-right corner of PyCharm — should show: `Python 3.12 (Bytedance)` or similar with `.venv`.
-
-If it shows wrong/missing interpreter:
-1. Click it → **Add New Interpreter → Add Local → Existing**
-2. Browse to `/Users/Pankaj.Pawskar/Projects/Bytedance/.venv/bin/python`
-3. OK
-
-## Step 4: Update Run Configuration
-
-Top-right → dropdown showing `Bytedance Odoo 19` → click → **Edit Configurations...**
-
-Verify fields:
-
-| Field | Value |
-|---|---|
-| **Name** | `Bytedance Odoo 19` |
-| **Script path** | `/Users/Pankaj.Pawskar/Projects/Bytedance/odoo/odoo-bin` |
-| **Parameters** | `-c odoo.conf -d bytedance_dev` |
-| **Working directory** | `/Users/Pankaj.Pawskar/Projects/Bytedance` |
-| **Python interpreter** | `Python 3.12 (Bytedance)` |
-
-⚠️ Make sure **Parameters does NOT have `-u ticket_management`** anymore (you used it once, now remove it).
-
-Click **Apply → OK**.
-
-## Step 5: Start Odoo from PyCharm
-
-Click the green ▶ button (top-right).
-
-Bottom panel opens with logs. Wait 1-3 min for:
-```
-HTTP service (werkzeug) running on ...:8070
+On branch feature/fix-mfg-required-helpdesk      ← Correct branch! ✅
+Changes not staged for commit:
+  modified:   ticket_management/__manifest__.py       ← Copilot's unwanted change
+  modified:   ticket_management/models/helpdesk_ticket.py  ← YOUR mfg fix
 ```
 
-Open browser: http://localhost:8070
+You're on the **right branch**. Two files modified:
+1. `helpdesk_ticket.py` — **YOUR fix** (the `default='mfg1'` we want to keep)
+2. `__manifest__.py` — **Copilot's unwanted edit** (adding `web_cohort` dependency, etc. — we want to discard)
 
-## Step 6: Confirm everything works
+Also no stray `.git` folder at the Bytedance level. The "feature" orphan branch I saw earlier was just PyCharm showing weird state — not real.
 
-Login: `admin` / `admin`
+## Recovery — 3 commands
 
-Browse around — check Helpdesk, Inventory, modules you'll work on.
+### Step 1: Click "Undo All" in the Copilot popup
+
+Top of editor shows the Copilot popup with "Keep All / Undo All" — **click Undo All**. This reverts Copilot's `__manifest__.py` edit.
+
+### Step 2: Verify in terminal
+
+```bash
+cd ~/Projects/Bytedance/custom
+git status
+```
+
+Should now show **only**:
+```
+modified:   ticket_management/models/helpdesk_ticket.py
+```
+
+(Just one file — your mfg fix only)
+
+### Step 3: Double-check your mfg fix is still there
+
+```bash
+git diff ticket_management/models/helpdesk_ticket.py
+```
+
+Should show ONLY this addition (a green `+` line):
+```
++    default='mfg1'
+```
+
+That's the only thing that should change. Paste output here.
+
+## If Copilot popup doesn't show / Undo All doesn't work
+
+Manual revert with one command:
+
+```bash
+git checkout -- ticket_management/__manifest__.py
+```
+
+This restores `__manifest__.py` to its original state. Your `helpdesk_ticket.py` is untouched.
 
 ## Reply
 
-- ✅ "PyCharm working, browser logged in" → next: I'll show you the daily workflow for new tasks
-- ❌ Issue → screenshot or paste error
+- ✅ Output of `git status` after clicking Undo All (should show 1 file modified)
+- ✅ Output of `git diff` showing only the `+default='mfg1'` line
+
+Once confirmed clean, we proceed: commit + push + PR. We're 5 minutes away from done.
