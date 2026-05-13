@@ -1,51 +1,69 @@
-All checks pass ✅
+Got it. Let's get PyCharm fully reconfigured for the new Enterprise setup, so you can work normally going forward.
 
-- Step 3: Backup created ✅
-- Step 5: `odoo19e` copied into place, `helpdesk/__manifest__.py` exists ✅
-- Step 6: addons_path updated to `./odoo/odoo/addons,./custom` ✅
+## Step 1: Stop the running Odoo
 
-I also see `Custom Modules`, `venv`, `odoo19_demo.conf` inside — those are leftovers from teammate's setup. **Ignore them. Don't delete.** They won't affect us.
-
-## Now: Install missing libraries + start Odoo
-
-### Step 1: Install commonly needed Python libraries
-
-```bash
-cd ~/Projects/Bytedance
-source .venv/bin/activate
-pip install pdfminer.six PyJWT astroid pylint
+In Terminal where Odoo is running:
+```
+Ctrl + C
 ```
 
-### Step 2: Start Odoo with module update (to apply your MFG fix)
+Wait for prompt to return.
 
-```bash
-python odoo/odoo-bin -c odoo.conf -d bytedance_dev -u ticket_management
-```
+## Step 2: Open Bytedance project in PyCharm
 
-⏱ Takes 2-5 min. Lots of INFO/WARNING/ERROR lines will scroll.
+If already open, close it: **File → Close Project**
 
-Watch for:
+Then: **File → Open** → select `/Users/Pankaj.Pawskar/Projects/Bytedance` → **Open**
+
+If asked "Trust Project?" → **Trust**
+
+Wait 2-5 min for PyCharm to re-index (status bar shows progress at bottom).
+
+## Step 3: Verify Python interpreter
+
+Bottom-right corner of PyCharm — should show: `Python 3.12 (Bytedance)` or similar with `.venv`.
+
+If it shows wrong/missing interpreter:
+1. Click it → **Add New Interpreter → Add Local → Existing**
+2. Browse to `/Users/Pankaj.Pawskar/Projects/Bytedance/.venv/bin/python`
+3. OK
+
+## Step 4: Update Run Configuration
+
+Top-right → dropdown showing `Bytedance Odoo 19` → click → **Edit Configurations...**
+
+Verify fields:
+
+| Field | Value |
+|---|---|
+| **Name** | `Bytedance Odoo 19` |
+| **Script path** | `/Users/Pankaj.Pawskar/Projects/Bytedance/odoo/odoo-bin` |
+| **Parameters** | `-c odoo.conf -d bytedance_dev` |
+| **Working directory** | `/Users/Pankaj.Pawskar/Projects/Bytedance` |
+| **Python interpreter** | `Python 3.12 (Bytedance)` |
+
+⚠️ Make sure **Parameters does NOT have `-u ticket_management`** anymore (you used it once, now remove it).
+
+Click **Apply → OK**.
+
+## Step 5: Start Odoo from PyCharm
+
+Click the green ▶ button (top-right).
+
+Bottom panel opens with logs. Wait 1-3 min for:
 ```
 HTTP service (werkzeug) running on ...:8070
 ```
 
-If you see it → ✅ proceed to browser test
-If it crashes → paste last 30 lines
+Open browser: http://localhost:8070
 
-### Step 3: Test in browser
-
-http://localhost:8070
+## Step 6: Confirm everything works
 
 Login: `admin` / `admin`
 
-Navigate to **Helpdesk** → try to create a new ticket.
-
-The **MFG** field should now auto-default to **"MFG 1"**.
-
-Save the ticket → should work without "Missing required value" error.
+Browse around — check Helpdesk, Inventory, modules you'll work on.
 
 ## Reply
 
-- ✅ "Ticket saves without error" → next: commit + push + PR (final stretch!)
-- ❌ Odoo crashes → paste last 30 lines
-- ❌ Different error in browser → screenshot
+- ✅ "PyCharm working, browser logged in" → next: I'll show you the daily workflow for new tasks
+- ❌ Issue → screenshot or paste error
