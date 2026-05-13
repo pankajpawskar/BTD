@@ -1,76 +1,51 @@
-Excellent — everything checks out:
+All checks pass ✅
 
-- ✅ **Odoo 19 Enterprise** confirmed (`19.0.0+e`)
-- ✅ Enterprise modules present: `web_studio`, `helpdesk`, `account_accountant`
-- ✅ **1370 modules** in `addons/` = Community + Enterprise + extras
-- ✅ Inner `odoo/` Python package structure correct (same as Enconnex)
-- ✅ Bytedance custom modules also bundled in `Custom Modules/` folder
+- Step 3: Backup created ✅
+- Step 5: `odoo19e` copied into place, `helpdesk/__manifest__.py` exists ✅
+- Step 6: addons_path updated to `./odoo/odoo/addons,./custom` ✅
 
-## Plan (same as Enconnex)
+I also see `Custom Modules`, `venv`, `odoo19_demo.conf` inside — those are leftovers from teammate's setup. **Ignore them. Don't delete.** They won't affect us.
 
-Replace `~/Projects/Bytedance/odoo/` with this `odoo19e` folder. Then start Odoo and test your MFG fix.
+## Now: Install missing libraries + start Odoo
 
-## Run these — one at a time
-
-### Step 1: Stop Odoo if running
-
-```bash
-lsof -ti:8070 | xargs kill -9 2>/dev/null
-```
-
-### Step 2: Backup current odoo folder
+### Step 1: Install commonly needed Python libraries
 
 ```bash
 cd ~/Projects/Bytedance
-mv odoo odoo-backup
+source .venv/bin/activate
+pip install pdfminer.six PyJWT astroid pylint
 ```
 
-### Step 3: Verify backup
+### Step 2: Start Odoo with module update (to apply your MFG fix)
 
 ```bash
-ls ~/Projects/Bytedance
+python odoo/odoo-bin -c odoo.conf -d bytedance_dev -u ticket_management
 ```
 
-Should show: `custom`, `odoo-backup`, `odoo.conf`, `.venv`. **Paste output.**
+⏱ Takes 2-5 min. Lots of INFO/WARNING/ERROR lines will scroll.
 
-### Step 4: Copy odoo19e into place
-
-This takes 3-7 min (~2 GB).
-
-```bash
-cp -R ~/Downloads/odoo19e ~/Projects/Bytedance/odoo
+Watch for:
+```
+HTTP service (werkzeug) running on ...:8070
 ```
 
-Wait for prompt to return.
+If you see it → ✅ proceed to browser test
+If it crashes → paste last 30 lines
 
-### Step 5: Verify structure
+### Step 3: Test in browser
 
-```bash
-ls ~/Projects/Bytedance/odoo
-```
+http://localhost:8070
 
-Should show: `LICENSE`, `MANIFEST.in`, `odoo` (folder), `odoo-bin`, `setup.py`, etc.
+Login: `admin` / `admin`
 
-```bash
-ls ~/Projects/Bytedance/odoo/odoo/addons/helpdesk/__manifest__.py
-```
+Navigate to **Helpdesk** → try to create a new ticket.
 
-Should print the path (no error).
+The **MFG** field should now auto-default to **"MFG 1"**.
 
-### Step 6: Fix addons_path
+Save the ticket → should work without "Missing required value" error.
 
-```bash
-sed -i '' 's|addons_path = ./odoo/addons,./custom|addons_path = ./odoo/odoo/addons,./custom|' ~/Projects/Bytedance/odoo.conf
-```
+## Reply
 
-```bash
-cat ~/Projects/Bytedance/odoo.conf | grep addons_path
-```
-
-Should show: `addons_path = ./odoo/odoo/addons,./custom`
-
-## ⛔ Stop after Step 6
-
-Paste outputs of Steps 3, 5, 6. I'll verify before we proceed.
-
-Don't start Odoo yet — we'll do that next.
+- ✅ "Ticket saves without error" → next: commit + push + PR (final stretch!)
+- ❌ Odoo crashes → paste last 30 lines
+- ❌ Different error in browser → screenshot
