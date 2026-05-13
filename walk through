@@ -1,49 +1,76 @@
-Mixed signals — let me check more carefully.
+Excellent — everything checks out:
 
-Confirmed:
-- ✅ It's **Odoo 19**: `version_info (19, 0, 0, FINAL, 0, '')` and `version+e-20251009` (the `+e` confirms Enterprise edition)
-- ❌ But `web_studio` check failed because of a typo in the command (`dev/null` instead of `/dev/null`)
+- ✅ **Odoo 19 Enterprise** confirmed (`19.0.0+e`)
+- ✅ Enterprise modules present: `web_studio`, `helpdesk`, `account_accountant`
+- ✅ **1370 modules** in `addons/` = Community + Enterprise + extras
+- ✅ Inner `odoo/` Python package structure correct (same as Enconnex)
+- ✅ Bytedance custom modules also bundled in `Custom Modules/` folder
 
-Let me verify Enterprise properly.
+## Plan (same as Enconnex)
+
+Replace `~/Projects/Bytedance/odoo/` with this `odoo19e` folder. Then start Odoo and test your MFG fix.
 
 ## Run these — one at a time
 
-```bash
-ls ~/Downloads/odoo19e/odoo/addons/web_studio
-```
-
-Should list files like `__init__.py`, `__manifest__.py`, `models/`, etc. If "No such file" → Enterprise modules are elsewhere.
+### Step 1: Stop Odoo if running
 
 ```bash
-ls ~/Downloads/odoo19e/odoo/addons | grep -E "^(web_studio|helpdesk|account_accountant)$"
+lsof -ti:8070 | xargs kill -9 2>/dev/null
 ```
 
-Should show those 3 module names if Enterprise is in `odoo/addons/`.
+### Step 2: Backup current odoo folder
 
 ```bash
-ls ~/Downloads/odoo19e/odoo | head -20
+cd ~/Projects/Bytedance
+mv odoo odoo-backup
 ```
 
-Shows what's inside the inner `odoo` folder.
+### Step 3: Verify backup
 
 ```bash
-ls ~/Downloads/odoo19e/odoo/addons | wc -l
+ls ~/Projects/Bytedance
 ```
 
-Number of modules. Community-only ~280, Community+Enterprise ~500-700+.
+Should show: `custom`, `odoo-backup`, `odoo.conf`, `.venv`. **Paste output.**
 
-## Also — I notice "Custom Modules" folder
+### Step 4: Copy odoo19e into place
 
-Your screenshot shows a "Custom Modules" folder inside `odoo19e`. Check:
+This takes 3-7 min (~2 GB).
 
 ```bash
-ls ~/Downloads/odoo19e/Custom\ Modules
+cp -R ~/Downloads/odoo19e ~/Projects/Bytedance/odoo
 ```
 
-This might already contain Bytedance custom modules pre-bundled — useful info.
+Wait for prompt to return.
 
-## Reply
+### Step 5: Verify structure
 
-Paste outputs of all 5 commands.
+```bash
+ls ~/Projects/Bytedance/odoo
+```
 
-Once I see where Enterprise modules live and the structure, I'll give you exact copy commands. Don't move anything yet.
+Should show: `LICENSE`, `MANIFEST.in`, `odoo` (folder), `odoo-bin`, `setup.py`, etc.
+
+```bash
+ls ~/Projects/Bytedance/odoo/odoo/addons/helpdesk/__manifest__.py
+```
+
+Should print the path (no error).
+
+### Step 6: Fix addons_path
+
+```bash
+sed -i '' 's|addons_path = ./odoo/addons,./custom|addons_path = ./odoo/odoo/addons,./custom|' ~/Projects/Bytedance/odoo.conf
+```
+
+```bash
+cat ~/Projects/Bytedance/odoo.conf | grep addons_path
+```
+
+Should show: `addons_path = ./odoo/odoo/addons,./custom`
+
+## ⛔ Stop after Step 6
+
+Paste outputs of Steps 3, 5, 6. I'll verify before we proceed.
+
+Don't start Odoo yet — we'll do that next.
