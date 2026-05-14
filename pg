@@ -1,153 +1,46 @@
-mkdir -p ~/Projects/Bytedance
-cd ~/Projects/Bytedance
+One command to fix everything. Run this exact block:
 
-
-git clone --depth 1 --branch 19.0 https://github.com/odoo/odoo.git odoo
-
-
-cd ~/Projects/Bytedance
-git clone https://github.com/raghuchandra22/Bytedance_WMS.git custom
-
-cd ~/Projects/Bytedance/custom
-git checkout Sandbox-19
-git pull origin Sandbox-19
-
-ls ~/Projects/Bytedance/custom | head -20
-
-
-cd ~/Projects/Bytedance
-python3.12 -m venv .venv
-
-source .venv/bin/activate
-pip install --upgrade pip wheel setuptools
-
-export LDFLAGS="-L/opt/homebrew/opt/postgresql@15/lib -L/opt/homebrew/opt/openssl@3/lib"
-export CPPFLAGS="-I/opt/homebrew/opt/postgresql@15/include -I/opt/homebrew/opt/openssl@3/include"
-
-pip install -r odoo/requirements.txt
-
-
-----------------
-
-createdb -U odoo bytedance_dev
-
-
-cat > ~/Projects/Bytedance/odoo.conf << 'EOF'
-[options]
-addons_path = ./odoo/addons,./custom
-db_host = localhost
-db_port = 5432
-db_user = odoo
-db_password = False
-db_name = bytedance_dev
-http_port = 8070
-admin_passwd = admin
-log_level = info
-dev_mode = reload,qweb,xml
+```bash
+cd ~/Projects/Enconnex/custom/enconnex_account_report && \
+cat > views/account_report_expanded_views.xml << 'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="action_account_report_expanded_pdf" model="ir.actions.server">
+            <field name="name">Expanded PDF</field>
+            <field name="model_id" ref="account_reports.model_account_report"/>
+            <field name="binding_model_id" ref="account_reports.model_account_report"/>
+            <field name="state">code</field>
+            <field name="code">action = model.action_print_expanded_pdf(env.context.get('report_options', {}))</field>
+        </record>
+        <record id="action_account_report_expanded_xlsx" model="ir.actions.server">
+            <field name="name">Expanded XLSX</field>
+            <field name="model_id" ref="account_reports.model_account_report"/>
+            <field name="binding_model_id" ref="account_reports.model_account_report"/>
+            <field name="state">code</field>
+            <field name="code">action = model.action_print_expanded_xlsx(env.context.get('report_options', {}))</field>
+        </record>
+    </data>
+</odoo>
 EOF
+echo "✅ XML file created" && \
+ls -lh views/account_report_expanded_views.xml && \
+ls -lh models/account_report_expanded.py && \
+echo "✅ Both files exist. Now restart Odoo with -u enconnex_account_report"
+```
 
+## What this does
 
-cd ~/Projects/Bytedance
-source .venv/bin/activate
-pip install pdfminer.six PyJWT astroid pylint
+1. Goes to the module folder
+2. Creates the XML file (overwrites if exists, no typo possible)
+3. Verifies both required files exist
+4. Tells you next step
 
-cat ~/Projects/Bytedance/odoo.conf | grep -E "addons_path|db_name|http_port"
+## After running it
 
-addons_path = ./odoo/addons,./custom
-db_name = bytedance_dev
-http_port = 8070
+Stop Odoo in PyCharm (red ⏹), then click ▶ again (you should still have `-u enconnex_account_report` in Run Config from before).
 
+## Reply
 
-------
-
-ls -lh ~/Downloads/bytedance-wms-master-*_test_nofs.zip
-
-unzip -o ~/Downloads/bytedance-wms-master-*_test_nofs.zip -d ~/Downloads/bytedance-restore
-
-ls -lh ~/Downloads/bytedance-restore
-
-psql -U odoo -d bytedance_dev -f ~/Downloads/bytedance-restore/dump.sql
-
-
-
-psql -U odoo -d bytedance_dev -c "SELECT COUNT(*) FROM ir_module_module WHERE state='installed';"
-------
-
-
-cd ~/Projects/Bytedance
-source .venv/bin/activate
-python odoo/odoo-bin -c odoo.conf -d bytedance_dev
-
-HTTP service (werkzeug) running on ...:8070
-
-
- http://localhost:8070
-
-
-psql -U odoo -d bytedance_dev -c "SELECT COUNT(*) FROM res_partner;"
-
-
-
-
------
-
-
-
-cd ~/Projects/Bytedance
-source .venv/bin/activate
-pip uninstall -y psycopg2 psycopg2-binary
-pip install psycopg2-binary
-
-
-python odoo/odoo-bin -c odoo.conf -d bytedance_dev
-
-
-
-
-
------
-
-cd ~/Projects/Bytedance
-source .venv/bin/activate
-
-python -c "
-from passlib.context import CryptContext
-ctx = CryptContext(schemes=['pbkdf2_sha512'])
-print(ctx.hash('admin'))
-"
-
- psql -U odoo -d bytedance_dev
-
-UPDATE res_users SET password='PASTE_HASH_HERE' WHERE id=2;
-\q
-
-
-python odoo/odoo-bin -c odoo.conf -d bytedance_dev
-
-
-
-
------
-
-
-
-Final cleanup — set up PyCharm for Bytedance
-Same as Enconnex setup:
-
-PyCharm → File → Open → select /Users/Pankaj.Pawskar/Projects/Bytedance → Open in New Window
-Bottom-right Python interpreter → Add → Existing → ~/Projects/Bytedance/.venv/bin/python
-Run → Edit Configurations → + → Python
-
-Name: Bytedance Odoo 19
-Script path: /Users/Pankaj.Pawskar/Projects/Bytedance/odoo/odoo-bin
-Parameters: -c odoo.conf -d bytedance_dev
-Working directory: /Users/Pankaj.Pawskar/Projects/Bytedance
-
-
-Apply → OK
-
-Stop the terminal Odoo first (Ctrl + C), then click ▶ in PyCharm.
-
-
-
-
+- ✅ "Odoo started, no errors" → test in browser
+- ❌ New error → paste **last 15 lines only** (not the full traceback — just the error message lines)
