@@ -164,3 +164,55 @@ Paste both outputs. They'll tell us the **exact** model + external IDs used in Y
 
 - ✅ Buttons visible → test export, then we commit + push
 - ❌ Error or buttons missing → paste outputs of the 2 psql commands above
+
+
+
+
+
+
+
+The error proves: external ID `account_reports.partner_ledger_report` doesn't exist in your Odoo 18. The report records use different names in your version.
+
+Let me find the real names. Run this single command:
+
+```bash
+psql -U odoo -d enconnex_dev -c "SELECT module, name, model FROM ir_model_data WHERE model = 'account.report' ORDER BY name;"
+```
+
+Paste the output. I'm looking for the actual external IDs of Partner Ledger, Aged Receivable, Aged Payable reports in YOUR database.
+
+Also run:
+
+```bash
+psql -U odoo -d enconnex_dev -c "SELECT name FROM ir_model WHERE model = 'account.report.button';"
+```
+
+This tells me if the model `account.report.button` exists. If empty → the model name is different.
+
+## Reply
+
+Paste both outputs as text. I'll then give you the exact XML with correct IDs.
+
+## In the meantime
+
+Restart Odoo will keep failing until we fix the XML. To unblock yourself:
+
+```bash
+cd ~/Projects/Enconnex/custom/enconnex_account_report && \
+mv views/account_report_expanded_views.xml views/account_report_expanded_views.xml.bak && \
+echo "✅ XML temporarily disabled. Now also remove it from manifest data list"
+```
+
+Then in PyCharm, open `__manifest__.py` and **comment out** the line:
+```python
+# 'views/account_report_expanded_views.xml',
+```
+
+Save → restart Odoo. It will start without the broken XML, and you can develop normally while waiting for the right IDs.
+
+Once we have correct IDs, I'll regenerate the XML and uncomment the manifest line.
+
+## Reply with
+
+1. Output of both `psql` commands
+2. Confirmation Odoo starts after disabling the XML
