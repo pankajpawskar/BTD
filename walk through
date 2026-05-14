@@ -1,36 +1,77 @@
-Good choice. Now I need to inspect the existing module so my code fits cleanly. **Run the 5 commands** from my previous message and paste outputs:
+Now I have everything I need. Let me confirm what I see:
 
-```bash
-cd ~/Projects/Enconnex/custom/enconnex_account_report
-ls
-cat __manifest__.py
-ls models/ 2>/dev/null
-ls views/ 2>/dev/null
-grep -r "account.report" --include="*.py" -l 2>/dev/null | head -5
+## Module structure (confirmed)
+
+```
+enconnex_account_report/
+├── __init__.py
+├── __manifest__.py
+├── data/
+├── models/
+│   ├── __init__.py
+│   ├── account_move.py
+│   ├── account_report.py        ← already extends account.report ✅
+│   ├── accounts_report_coa.py
+│   ├── mail.py
+│   └── res_company.py
+├── views/
+│   ├── account_move_views.xml
+│   ├── res_company_views.xml
+│   └── trial_balance_report_inherit.xml
+└── report/
+    ├── web_templates.xml
+    └── report_account_invoice.xml
 ```
 
-You can run them all at once (copy/paste the whole block). Paste outputs as text (not screenshot) — easier to read.
+**`__manifest__.py` depends on:** `['mail','base','account','account_reports']` — perfect, `account_reports` (Enterprise) is already declared ✅
 
-## Also one critical thing — switch to right branch
+**Key finding:** `models/account_report.py` already exists. That's where we'll add our extension.
 
-I noticed your PyCharm top bar showed `main` earlier. **DO NOT work on main** — that's production for Enconnex. Verify:
+## ⚠️ Before I write code — important constraint
+
+I need to see the **existing** `account_report.py` content to avoid breaking what's already there. The team has already extended `account.report` for some reason. If I add my code blindly, I might:
+- Override an existing method (silently breaking it)
+- Conflict with existing field names
+- Break trial_balance customization
+
+**Run this and paste output as text:**
 
 ```bash
-git branch --show-current
+cat ~/Projects/Enconnex/custom/enconnex_account_report/models/account_report.py
 ```
 
-Should print **`Sandbox-18`** or your new feature branch.
+If the file is long (>100 lines), tell me the line count and paste the first 50 + last 50 lines.
 
-If it shows `main`:
+Also:
+
 ```bash
-git checkout Sandbox-18
-git pull origin Sandbox-18
-git checkout -b feature/expanded-partner-report-export
+wc -l ~/Projects/Enconnex/custom/enconnex_account_report/models/account_report.py
 ```
 
-## Reply with
+(Tells me how many lines)
 
-1. ✅ Confirmed on correct branch (Sandbox-18 or your feature branch)
-2. Output of the 5 inspection commands
+## What I'll deliver after seeing that file
 
-Then I'll write the complete code in the next message.
+Once I see the existing `account_report.py`, I'll give you:
+
+1. **New Python file:** `models/partner_report_export.py` — extends `account.report` to add `action_print_expanded_pdf` and `action_print_expanded_xlsx` methods (works for Partner Ledger + Aged Receivable + Aged Payable since they all use `account.report`)
+
+2. **Updated `__init__.py` in models/** — import the new file
+
+3. **New XML file:** `views/partner_report_export_views.xml` — adds the button next to existing PDF/XLSX
+
+4. **Updated `__manifest__.py`** — add the new XML to `data`
+
+5. **Step-by-step apply + test instructions**
+
+6. **PR description template**
+
+Total: ~80 lines of code, 3 files modified.
+
+## Reply
+
+Paste:
+1. Content of `models/account_report.py` (or first/last 50 lines if long)
+2. Line count from `wc -l`
+
+Then I write the complete code.
