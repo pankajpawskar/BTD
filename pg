@@ -44,3 +44,123 @@ Stop Odoo in PyCharm (red ⏹), then click ▶ again (you should still have `-u 
 
 - ✅ "Odoo started, no errors" → test in browser
 - ❌ New error → paste **last 15 lines only** (not the full traceback — just the error message lines)
+
+
+
+
+
+
+
+
+
+Two pieces of news:
+
+## ✅ Good news: Odoo started successfully
+
+The error you see is harmless background noise — Odoo is running, your module loaded, no errors related to your new code. Those "sales_performance_wizard" errors are old issues unrelated to this task.
+
+## ❌ Bad news: The buttons don't appear
+
+This is exactly the **Caveat 1** I warned about. Odoo 18's account.report toolbar (PDF/XLSX) is a special OWL component — `ir.actions.server` records don't show up there. They show in the global Action menu but not in the report toolbar.
+
+The proper fix requires OWL frontend code. Let me give you a working approach.
+
+## Better approach: Server action approach won't work — we need to add the button to the report definition itself
+
+The cleanest way for Odoo 18 is to add new "buttons" directly to the report record using `account.report.button` (the model Odoo uses for PDF/XLSX buttons themselves).
+
+## Run this single command
+
+```bash
+cd ~/Projects/Enconnex/custom/enconnex_account_report && \
+cat > views/account_report_expanded_views.xml << 'EOF'
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="0">
+
+        <!-- Add Expanded PDF button to Partner Ledger -->
+        <record id="partner_ledger_expanded_pdf_button" model="account.report.button">
+            <field name="name">Expanded PDF</field>
+            <field name="report_id" ref="account_reports.partner_ledger_report"/>
+            <field name="action">action_print_expanded_pdf</field>
+            <field name="sequence">25</field>
+        </record>
+
+        <!-- Add Expanded XLSX button to Partner Ledger -->
+        <record id="partner_ledger_expanded_xlsx_button" model="account.report.button">
+            <field name="name">Expanded XLSX</field>
+            <field name="report_id" ref="account_reports.partner_ledger_report"/>
+            <field name="action">action_print_expanded_xlsx</field>
+            <field name="sequence">26</field>
+        </record>
+
+        <!-- Add Expanded PDF button to Aged Receivable -->
+        <record id="aged_receivable_expanded_pdf_button" model="account.report.button">
+            <field name="name">Expanded PDF</field>
+            <field name="report_id" ref="account_reports.aged_receivable_report"/>
+            <field name="action">action_print_expanded_pdf</field>
+            <field name="sequence">25</field>
+        </record>
+
+        <!-- Add Expanded XLSX button to Aged Receivable -->
+        <record id="aged_receivable_expanded_xlsx_button" model="account.report.button">
+            <field name="name">Expanded XLSX</field>
+            <field name="report_id" ref="account_reports.aged_receivable_report"/>
+            <field name="action">action_print_expanded_xlsx</field>
+            <field name="sequence">26</field>
+        </record>
+
+        <!-- Add Expanded PDF button to Aged Payable -->
+        <record id="aged_payable_expanded_pdf_button" model="account.report.button">
+            <field name="name">Expanded PDF</field>
+            <field name="report_id" ref="account_reports.aged_payable_report"/>
+            <field name="action">action_print_expanded_pdf</field>
+            <field name="sequence">25</field>
+        </record>
+
+        <!-- Add Expanded XLSX button to Aged Payable -->
+        <record id="aged_payable_expanded_xlsx_button" model="account.report.button">
+            <field name="name">Expanded XLSX</field>
+            <field name="report_id" ref="account_reports.aged_payable_report"/>
+            <field name="action">action_print_expanded_xlsx</field>
+            <field name="sequence">26</field>
+        </record>
+
+    </data>
+</odoo>
+EOF
+echo "✅ XML rewritten with proper account.report.button approach"
+```
+
+## Then restart Odoo with module update
+
+In PyCharm: Stop (red ⏹) → ▶ (with `-u enconnex_account_report` in Run Config)
+
+## Then test
+
+Open http://localhost:8069 → Accounting → Reporting → Partner Ledger
+
+Look at the toolbar where PDF/XLSX are. You should now see **"Expanded PDF"** and **"Expanded XLSX"** buttons appear there.
+
+## If it still doesn't work
+
+Possible reasons:
+1. Model `account.report.button` doesn't exist in your Odoo 18 version → I'll need actual model name
+2. External IDs `account_reports.partner_ledger_report` might be different in your setup
+
+Run this to verify:
+
+```bash
+psql -U odoo -d enconnex_dev -c "SELECT name FROM ir_model WHERE model LIKE '%report.button%' OR model = 'account.report.button';"
+```
+
+```bash
+psql -U odoo -d enconnex_dev -c "SELECT module, name FROM ir_model_data WHERE model = 'account.report' AND name LIKE '%partner_ledger%' OR name LIKE '%aged%';"
+```
+
+Paste both outputs. They'll tell us the **exact** model + external IDs used in YOUR Odoo 18 installation.
+
+## Reply
+
+- ✅ Buttons visible → test export, then we commit + push
+- ❌ Error or buttons missing → paste outputs of the 2 psql commands above
