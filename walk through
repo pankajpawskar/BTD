@@ -1,62 +1,36 @@
-Got it. Clean slate. Run these one at a time.
-
-## Step 1: Make sure no Odoo is running
+Good choice. Now I need to inspect the existing module so my code fits cleanly. **Run the 5 commands** from my previous message and paste outputs:
 
 ```bash
-lsof -ti:8070 | xargs kill -9 2>/dev/null
+cd ~/Projects/Enconnex/custom/enconnex_account_report
+ls
+cat __manifest__.py
+ls models/ 2>/dev/null
+ls views/ 2>/dev/null
+grep -r "account.report" --include="*.py" -l 2>/dev/null | head -5
 ```
 
-## Step 2: Go to custom folder
+You can run them all at once (copy/paste the whole block). Paste outputs as text (not screenshot) — easier to read.
+
+## Also one critical thing — switch to right branch
+
+I noticed your PyCharm top bar showed `main` earlier. **DO NOT work on main** — that's production for Enconnex. Verify:
 
 ```bash
-cd ~/Projects/Bytedance/custom
-```
-
-## Step 3: Discard ALL current changes (Copilot's edits, your edits, everything)
-
-```bash
-git restore .
-```
-
-## Step 4: Switch to safe sandbox branch
-
-```bash
-git checkout Sandbox-19
-```
-
-## Step 5: Delete the feature branch locally
-
-```bash
-git branch -D feature/fix-mfg-required-helpdesk
-```
-
-## Step 6: Delete it on GitHub too (if it was ever pushed)
-
-```bash
-git push origin --delete feature/fix-mfg-required-helpdesk 2>/dev/null
-```
-
-(If it says "remote ref does not exist" → fine, means it was never pushed)
-
-## Step 7: Pull latest sandbox
-
-```bash
-git pull origin Sandbox-19
-```
-
-## Step 8: Verify clean state
-
-```bash
-git status
 git branch --show-current
 ```
 
-Expected:
-```
-nothing to commit, working tree clean
-Sandbox-19
+Should print **`Sandbox-18`** or your new feature branch.
+
+If it shows `main`:
+```bash
+git checkout Sandbox-18
+git pull origin Sandbox-18
+git checkout -b feature/expanded-partner-report-export
 ```
 
-## Reply
+## Reply with
 
-Paste output of Step 8. If both lines look right, you're fully clean and ready for a new task.
+1. ✅ Confirmed on correct branch (Sandbox-18 or your feature branch)
+2. Output of the 5 inspection commands
+
+Then I'll write the complete code in the next message.
