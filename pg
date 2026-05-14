@@ -1,218 +1,78 @@
-One command to fix everything. Run this exact block:
+Now I have the truth. Let me decode:
+
+## ✅ Real external IDs found
+
+From your screen:
+- **Partner Ledger:** `account_reports.partner_ledger_report` ✅
+- **Aged Receivable:** `account_reports.aged_receivable_report` ✅
+- **Aged Payable:** `account_reports.aged_payable_report` ✅
+
+The IDs I used WERE correct.
+
+## ❌ Real problem found
+
+```
+psql ... model = 'account.report.button';
+ name
+------
+(0 rows)
+```
+
+**`account.report.button` model does NOT exist** in your Odoo 18. That's why the XML failed to load — we tried to create records of a model that doesn't exist.
+
+## Why this happened
+
+Odoo 18 changed the field where buttons are defined. They're not a separate model — they live as JSON inside a field on `account.report` itself called `custom_handler_model_name` or similar, OR they're set via Python on the report handler.
+
+Let me verify the exact structure:
+
+## Run these — copy the whole block
+
+```bash
+psql -U odoo -d enconnex_dev -c "SELECT column_name FROM information_schema.columns WHERE table_name='account_report' AND column_name LIKE '%button%' OR column_name LIKE '%action%';"
+```
+
+```bash
+psql -U odoo -d enconnex_dev -c "SELECT id, name, custom_handler_model_name FROM account_report WHERE name ILIKE '%partner ledger%' OR name ILIKE '%aged%';"
+```
+
+```bash
+psql -U odoo -d enconnex_dev -c "SELECT name FROM ir_model WHERE name ILIKE '%partner.ledger%' OR name ILIKE '%aged%partner%';"
+```
+
+Paste all three outputs.
+
+## What this will tell me
+
+- Output 1: Whether there's a button-related field on `account.report`
+- Output 2: The actual report IDs + their custom handler models
+- Output 3: The handler model names (e.g., `account.partner.ledger.report.handler`)
+
+## Honest assessment
+
+This task is getting deeper than expected. In Odoo 18, "adding a button to a built-in account report" requires either:
+
+1. **Extending the report's custom handler** (Python only, no XML) — cleanest
+2. **Modifying the report record directly via SQL/XML** — risky
+3. **Frontend OWL component patch** — complex
+
+Once I see the outputs, I'll know which path works in YOUR Odoo 18.
+
+## In the meantime — unblock Odoo
+
+Your Odoo is probably still crashing because of the broken XML. Run this to disable it temporarily:
 
 ```bash
 cd ~/Projects/Enconnex/custom/enconnex_account_report && \
-cat > views/account_report_expanded_views.xml << 'EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<odoo>
-    <data>
-        <record id="action_account_report_expanded_pdf" model="ir.actions.server">
-            <field name="name">Expanded PDF</field>
-            <field name="model_id" ref="account_reports.model_account_report"/>
-            <field name="binding_model_id" ref="account_reports.model_account_report"/>
-            <field name="state">code</field>
-            <field name="code">action = model.action_print_expanded_pdf(env.context.get('report_options', {}))</field>
-        </record>
-        <record id="action_account_report_expanded_xlsx" model="ir.actions.server">
-            <field name="name">Expanded XLSX</field>
-            <field name="model_id" ref="account_reports.model_account_report"/>
-            <field name="binding_model_id" ref="account_reports.model_account_report"/>
-            <field name="state">code</field>
-            <field name="code">action = model.action_print_expanded_xlsx(env.context.get('report_options', {}))</field>
-        </record>
-    </data>
-</odoo>
-EOF
-echo "✅ XML file created" && \
-ls -lh views/account_report_expanded_views.xml && \
-ls -lh models/account_report_expanded.py && \
-echo "✅ Both files exist. Now restart Odoo with -u enconnex_account_report"
+sed -i '' "s|'views/account_report_expanded_views.xml',|# 'views/account_report_expanded_views.xml',|" __manifest__.py && \
+echo "✅ XML disabled in manifest, restart Odoo now"
 ```
 
-## What this does
-
-1. Goes to the module folder
-2. Creates the XML file (overwrites if exists, no typo possible)
-3. Verifies both required files exist
-4. Tells you next step
-
-## After running it
-
-Stop Odoo in PyCharm (red ⏹), then click ▶ again (you should still have `-u enconnex_account_report` in Run Config from before).
+Then restart Odoo with `-u enconnex_account_report`. It should start clean.
 
 ## Reply
 
-- ✅ "Odoo started, no errors" → test in browser
-- ❌ New error → paste **last 15 lines only** (not the full traceback — just the error message lines)
+1. ✅ Odoo starts after disabling XML
+2. Outputs of the 3 psql commands
 
-
-
-
-
-
-
-
-
-Two pieces of news:
-
-## ✅ Good news: Odoo started successfully
-
-The error you see is harmless background noise — Odoo is running, your module loaded, no errors related to your new code. Those "sales_performance_wizard" errors are old issues unrelated to this task.
-
-## ❌ Bad news: The buttons don't appear
-
-This is exactly the **Caveat 1** I warned about. Odoo 18's account.report toolbar (PDF/XLSX) is a special OWL component — `ir.actions.server` records don't show up there. They show in the global Action menu but not in the report toolbar.
-
-The proper fix requires OWL frontend code. Let me give you a working approach.
-
-## Better approach: Server action approach won't work — we need to add the button to the report definition itself
-
-The cleanest way for Odoo 18 is to add new "buttons" directly to the report record using `account.report.button` (the model Odoo uses for PDF/XLSX buttons themselves).
-
-## Run this single command
-
-```bash
-cd ~/Projects/Enconnex/custom/enconnex_account_report && \
-cat > views/account_report_expanded_views.xml << 'EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<odoo>
-    <data noupdate="0">
-
-        <!-- Add Expanded PDF button to Partner Ledger -->
-        <record id="partner_ledger_expanded_pdf_button" model="account.report.button">
-            <field name="name">Expanded PDF</field>
-            <field name="report_id" ref="account_reports.partner_ledger_report"/>
-            <field name="action">action_print_expanded_pdf</field>
-            <field name="sequence">25</field>
-        </record>
-
-        <!-- Add Expanded XLSX button to Partner Ledger -->
-        <record id="partner_ledger_expanded_xlsx_button" model="account.report.button">
-            <field name="name">Expanded XLSX</field>
-            <field name="report_id" ref="account_reports.partner_ledger_report"/>
-            <field name="action">action_print_expanded_xlsx</field>
-            <field name="sequence">26</field>
-        </record>
-
-        <!-- Add Expanded PDF button to Aged Receivable -->
-        <record id="aged_receivable_expanded_pdf_button" model="account.report.button">
-            <field name="name">Expanded PDF</field>
-            <field name="report_id" ref="account_reports.aged_receivable_report"/>
-            <field name="action">action_print_expanded_pdf</field>
-            <field name="sequence">25</field>
-        </record>
-
-        <!-- Add Expanded XLSX button to Aged Receivable -->
-        <record id="aged_receivable_expanded_xlsx_button" model="account.report.button">
-            <field name="name">Expanded XLSX</field>
-            <field name="report_id" ref="account_reports.aged_receivable_report"/>
-            <field name="action">action_print_expanded_xlsx</field>
-            <field name="sequence">26</field>
-        </record>
-
-        <!-- Add Expanded PDF button to Aged Payable -->
-        <record id="aged_payable_expanded_pdf_button" model="account.report.button">
-            <field name="name">Expanded PDF</field>
-            <field name="report_id" ref="account_reports.aged_payable_report"/>
-            <field name="action">action_print_expanded_pdf</field>
-            <field name="sequence">25</field>
-        </record>
-
-        <!-- Add Expanded XLSX button to Aged Payable -->
-        <record id="aged_payable_expanded_xlsx_button" model="account.report.button">
-            <field name="name">Expanded XLSX</field>
-            <field name="report_id" ref="account_reports.aged_payable_report"/>
-            <field name="action">action_print_expanded_xlsx</field>
-            <field name="sequence">26</field>
-        </record>
-
-    </data>
-</odoo>
-EOF
-echo "✅ XML rewritten with proper account.report.button approach"
-```
-
-## Then restart Odoo with module update
-
-In PyCharm: Stop (red ⏹) → ▶ (with `-u enconnex_account_report` in Run Config)
-
-## Then test
-
-Open http://localhost:8069 → Accounting → Reporting → Partner Ledger
-
-Look at the toolbar where PDF/XLSX are. You should now see **"Expanded PDF"** and **"Expanded XLSX"** buttons appear there.
-
-## If it still doesn't work
-
-Possible reasons:
-1. Model `account.report.button` doesn't exist in your Odoo 18 version → I'll need actual model name
-2. External IDs `account_reports.partner_ledger_report` might be different in your setup
-
-Run this to verify:
-
-```bash
-psql -U odoo -d enconnex_dev -c "SELECT name FROM ir_model WHERE model LIKE '%report.button%' OR model = 'account.report.button';"
-```
-
-```bash
-psql -U odoo -d enconnex_dev -c "SELECT module, name FROM ir_model_data WHERE model = 'account.report' AND name LIKE '%partner_ledger%' OR name LIKE '%aged%';"
-```
-
-Paste both outputs. They'll tell us the **exact** model + external IDs used in YOUR Odoo 18 installation.
-
-## Reply
-
-- ✅ Buttons visible → test export, then we commit + push
-- ❌ Error or buttons missing → paste outputs of the 2 psql commands above
-
-
-
-
-
-
-
-The error proves: external ID `account_reports.partner_ledger_report` doesn't exist in your Odoo 18. The report records use different names in your version.
-
-Let me find the real names. Run this single command:
-
-```bash
-psql -U odoo -d enconnex_dev -c "SELECT module, name, model FROM ir_model_data WHERE model = 'account.report' ORDER BY name;"
-```
-
-Paste the output. I'm looking for the actual external IDs of Partner Ledger, Aged Receivable, Aged Payable reports in YOUR database.
-
-Also run:
-
-```bash
-psql -U odoo -d enconnex_dev -c "SELECT name FROM ir_model WHERE model = 'account.report.button';"
-```
-
-This tells me if the model `account.report.button` exists. If empty → the model name is different.
-
-## Reply
-
-Paste both outputs as text. I'll then give you the exact XML with correct IDs.
-
-## In the meantime
-
-Restart Odoo will keep failing until we fix the XML. To unblock yourself:
-
-```bash
-cd ~/Projects/Enconnex/custom/enconnex_account_report && \
-mv views/account_report_expanded_views.xml views/account_report_expanded_views.xml.bak && \
-echo "✅ XML temporarily disabled. Now also remove it from manifest data list"
-```
-
-Then in PyCharm, open `__manifest__.py` and **comment out** the line:
-```python
-# 'views/account_report_expanded_views.xml',
-```
-
-Save → restart Odoo. It will start without the broken XML, and you can develop normally while waiting for the right IDs.
-
-Once we have correct IDs, I'll regenerate the XML and uncomment the manifest line.
-
-## Reply with
-
-1. Output of both `psql` commands
-2. Confirmation Odoo starts after disabling the XML
+Then I'll give you the **correct working approach** for Odoo 18.
