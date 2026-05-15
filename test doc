@@ -1,4 +1,11 @@
-ls -la ~/Projects/Enconnex/custom/enconnex_account_report/models/partner_ledger_flat_export.py
-ls -la ~/Projects/Enconnex/custom/enconnex_account_report/views/partner_ledger_flat_export_views.xml
-ls -la ~/Projects/Enconnex/custom/enconnex_account_report/security/ir.model.access.csv
-cat ~/Projects/Enconnex/custom/enconnex_account_report/models/__init__.py
+cd ~/Projects/Enconnex/custom/enconnex_account_report && \
+cat > models/__init__.py << 'EOF'
+from . import account_move
+# from . import account_report           # legacy Odoo 14 code, broken in Odoo 18
+from . import accounts_report_coa
+from . import mail
+from . import res_company
+# from . import account_report_expanded   # previous attempt, no longer used
+from . import partner_ledger_flat_export
+EOF
+echo "✅ __init__.py updated - legacy broken imports disabled"
