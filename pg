@@ -4,3 +4,8 @@ ls ~/Projects/Enconnex/odoo/odoo/addons/account_reports/models/ > /tmp/r3.txt 2>
 echo "==== OUTPUT 1 ====" && cat /tmp/r1.txt && \
 echo "==== OUTPUT 2 ====" && cat /tmp/r2.txt && \
 echo "==== OUTPUT 3 ====" && cat /tmp/r3.txt
+
+
+
+
+psql -U odoo -d enconnex_dev -P pager=off -c "\d account_report" > ~/diag.txt 2>&1 ; psql -U odoo -d enconnex_dev -P pager=off -c "SELECT table_name FROM information_schema.tables WHERE table_name LIKE '%report%' AND table_schema='public';" >> ~/diag.txt 2>&1 ; ls ~/Projects/Enconnex/odoo/odoo/addons/account_reports/models/ >> ~/diag.txt 2>&1 ; echo "DONE - open ~/diag.txt in PyCharm"
