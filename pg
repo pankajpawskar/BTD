@@ -1,11 +1,47 @@
-psql -U odoo -d enconnex_dev -P pager=off -c "\d account_report" > /tmp/r1.txt 2>&1 && \
-psql -U odoo -d enconnex_dev -P pager=off -c "SELECT name FROM information_schema.tables WHERE table_name LIKE '%report%' AND table_schema='public';" > /tmp/r2.txt 2>&1 && \
-ls ~/Projects/Enconnex/odoo/odoo/addons/account_reports/models/ > /tmp/r3.txt 2>&1 && \
-echo "==== OUTPUT 1 ====" && cat /tmp/r1.txt && \
-echo "==== OUTPUT 2 ====" && cat /tmp/r2.txt && \
-echo "==== OUTPUT 3 ====" && cat /tmp/r3.txt
+Understood. Let me be honest before writing code:
 
+## ⚠️ Important: "Option C" is the WIZARD approach
 
+That means: **a new menu item** under Reporting → Partner Reports called something like "Flat Export". User clicks it → fills date range → downloads Excel.
 
+The button is **NOT** next to PDF/XLSX inside the existing reports. It's a separate menu entry.
 
-psql -U odoo -d enconnex_dev -P pager=off -c "\d account_report" > ~/diag.txt 2>&1 ; psql -U odoo -d enconnex_dev -P pager=off -c "SELECT table_name FROM information_schema.tables WHERE table_name LIKE '%report%' AND table_schema='public';" >> ~/diag.txt 2>&1 ; ls ~/Projects/Enconnex/odoo/odoo/addons/account_reports/models/ >> ~/diag.txt 2>&1 ; echo "DONE - open ~/diag.txt in PyCharm"
+If client specifically wants the button INSIDE Partner Ledger/Aged Receivable/Aged Payable toolbar — that requires Odoo Enterprise handler override (complex, risky).
+
+**Confirm:** OK with new menu entry approach? Or must it be inside the existing reports?
+
+## Impact on existing system
+
+**Zero impact** if Option C (wizard/menu):
+- New module files only
+- No edits to existing reports
+- No edits to existing accounting code
+- New menu added under Reporting
+- Existing PDF/XLSX buttons untouched
+- Safe to remove anytime by uninstalling
+
+## Before I generate the command
+
+I need ONE more thing — verify what was disabled earlier:
+
+```bash
+cat ~/Projects/Enconnex/custom/enconnex_account_report/__manifest__.py | grep account_report_expanded
+```
+
+Paste the output (just one line). I need to know if `'views/account_report_expanded_views.xml'` is commented or still active in manifest.
+
+Also:
+
+```bash
+ls ~/Projects/Enconnex/custom/enconnex_account_report/models/account_report_expanded.py 2>&1
+ls ~/Projects/Enconnex/custom/enconnex_account_report/views/account_report_expanded_views.xml 2>&1
+```
+
+This tells me what to overwrite vs. delete.
+
+## Reply with
+
+1. **Confirm:** new menu entry OK? OR must be inside existing reports?
+2. Output of the 3 commands above
+
+Then I give you ONE command that writes all files correctly + the test instructions.
