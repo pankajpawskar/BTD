@@ -9,3 +9,7 @@ from . import res_company
 from . import partner_ledger_flat_export
 EOF
 echo "✅ __init__.py updated - legacy broken imports disabled"
+
+cd ~/Projects/Enconnex/custom/enconnex_account_report && \
+sed -i '' 's|parent="account_reports.menu_action_account_report_partner_reports"|parent="account.menu_finance_reports"|' views/partner_ledger_flat_export_views.xml && \
+echo "✅ Menu parent fixed"
