@@ -5,12 +5,37 @@ path = 'models/partner_ledger_flat_export.py'
 with open(path) as f:
     content = f.read()
 
-pattern = re.compile(r'    def _flatten_sheet\(self, ws\):.*?(?=\n    def |\Z)', re.DOTALL)
+# Find and replace _flatten_xlsx + _flatten_sheet with conditional logic
+pattern = re.compile(
+    r'    def _flatten_xlsx\(self, xlsx_bytes\):.*',
+    re.DOTALL
+)
 
-new_method = '''    def _flatten_sheet(self, ws):
-        """Insert Partner column at A, fill with partner name on every row.
-        Then delete rows where col A == col B (partner-header duplicates).
+new_block = '''    def _flatten_xlsx(self, xlsx_bytes):
+        """Post-process Odoo's native XLSX.
+
+        Partner Ledger has hierarchical structure (partner header + indented
+        children) - we flatten it.
+
+        Aged Receivable / Aged Payable are already flat (each row IS a
+        partner with aging buckets) - we just add a Partner column copying
+        from col B so users have a dedicated Partner column for pivoting.
         """
+        wb = openpyxl.load_workbook(io.BytesIO(xlsx_bytes))
+
+        for ws in wb.worksheets:
+            if self.report_type == 'partner_ledger':
+                self._flatten_partner_ledger(ws)
+            else:
+                self._flatten_aged_report(ws)
+
+        out = io.BytesIO()
+        wb.save(out)
+        out.seek(0)
+        return out.read()
+
+    def _flatten_partner_ledger(self, ws):
+        """Partner Ledger: hierarchical structure -> flatten."""
         from openpyxl.styles import Font, PatternFill, Alignment
         min_row = ws.min_row
         max_row = ws.max_row
@@ -21,7 +46,7 @@ new_method = '''    def _flatten_sheet(self, ws):
         for r in range(min_row, min(min_row + 8, max_row + 1)):
             cell_b = ws.cell(row=r, column=2).value
             if cell_b and isinstance(cell_b, str) and cell_b.strip() in (
-                'Invoice Date', 'Journal', 'At Date', 'Account', 'Reference',
+                'Journal', 'Account', 'Reference',
             ):
                 header_row = r
                 break
@@ -34,6 +59,7 @@ new_method = '''    def _flatten_sheet(self, ws):
             hc.alignment = Alignment(horizontal='center')
 
         current_partner = None
+        rows_to_delete = []
         data_start = (header_row or min_row) + 1
 
         for r in range(data_start, max_row + 1):
@@ -46,31 +72,62 @@ new_method = '''    def _flatten_sheet(self, ws):
                     continue
                 leading = len(label_b) - len(label_b.lstrip())
                 if leading == 0:
+                    # Partner-header row: capture name, mark for deletion
                     current_partner = stripped
-                if current_partner:
-                    ws.cell(row=r, column=1, value=current_partner)
+                    rows_to_delete.append(r)
+                else:
+                    if current_partner:
+                        ws.cell(row=r, column=1, value=current_partner)
             else:
                 if current_partner:
                     ws.cell(row=r, column=1, value=current_partner)
-
-        rows_to_delete = []
-        for r in range(data_start, max_row + 1):
-            val_a = ws.cell(row=r, column=1).value
-            val_b = ws.cell(row=r, column=2).value
-            if not val_a or not val_b:
-                continue
-            if str(val_a).strip() == str(val_b).strip():
-                rows_to_delete.append(r)
 
         for r in sorted(rows_to_delete, reverse=True):
             ws.delete_rows(r, 1)
 
         ws.column_dimensions['A'].width = 35
+
+    def _flatten_aged_report(self, ws):
+        """Aged Receivable / Aged Payable: already flat. Just copy
+        col B (partner name) into a new col A labeled 'Partner'.
+        """
+        from openpyxl.styles import Font, PatternFill, Alignment
+        min_row = ws.min_row
+        max_row = ws.max_row
+
+        ws.insert_cols(1)
+
+        header_row = None
+        for r in range(min_row, min(min_row + 8, max_row + 1)):
+            cell_b = ws.cell(row=r, column=2).value
+            if cell_b and isinstance(cell_b, str) and cell_b.strip() in (
+                'Invoice Date', 'At Date',
+            ):
+                header_row = r
+                break
+
+        if header_row:
+            hc = ws.cell(row=header_row, column=1, value='Partner')
+            hc.font = Font(bold=True)
+            hc.fill = PatternFill(start_color='D9E1F2', end_color='D9E1F2',
+                                  fill_type='solid')
+            hc.alignment = Alignment(horizontal='center')
+
+        data_start = (header_row or min_row) + 1
+
+        # Aged reports: copy col B value into col A on every row
+        # If col B is empty, leave col A empty too (preserves blank spacer rows)
+        for r in range(data_start, max_row + 1):
+            val_b = ws.cell(row=r, column=2).value
+            if val_b and isinstance(val_b, str) and val_b.strip():
+                ws.cell(row=r, column=1, value=val_b.strip())
+
+        ws.column_dimensions['A'].width = 35
 '''
 
-content = pattern.sub(new_method, content)
+content = pattern.sub(new_block, content)
 with open(path, 'w') as f:
     f.write(content)
-print("OK: updated")
+print("OK: separate logic for Partner Ledger vs Aged reports")
 PYMOD
-echo "Done. Now in PyCharm: stop Odoo (red square), then start (green play) with -u enconnex_account_report in Run Config parameters"
+echo "Done. Restart Odoo with -u enconnex_account_report"
