@@ -1,2 +1,229 @@
-grep -l "export_to_xlsx\|export_file" ~/Projects/Enconnex/odoo/odoo/addons/account_reports/models/account_report.py | head -1 && \
-grep -n "def export_to_\|def export_file\|def get_xlsx\|def _xlsx" ~/Projects/Enconnex/odoo/odoo/addons/account_reports/models/account_report.py
+cd ~/Projects/Enconnex/custom/enconnex_account_report && \
+cat > models/partner_ledger_flat_export.py << 'PYEOF'
+# -*- coding: utf-8 -*-
+"""Flat XLSX export wizard for Partner Ledger, Aged Receivable, Aged Payable.
+
+Strategy: call Odoo's native export_to_xlsx with unfold_all=True so the
+output structure matches the standard reports exactly. Then post-process
+the XLSX to insert a "Partner" column with the partner name repeated on
+every row (pivot-friendly).
+"""
+import io
+import base64
+from odoo import models, fields, api, _
+from odoo.exceptions import UserError
+
+try:
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+except ImportError:
+    openpyxl = None
+
+
+# Map wizard selection -> account.report XML id
+REPORT_XMLID = {
+    'partner_ledger': 'account_reports.partner_ledger_report',
+    'aged_receivable': 'account_reports.aged_receivable_report',
+    'aged_payable': 'account_reports.aged_payable_report',
+}
+
+
+class PartnerLedgerFlatExportWizard(models.TransientModel):
+    _name = 'partner.ledger.flat.export.wizard'
+    _description = 'Flat Partner Report Export Wizard'
+
+    report_type = fields.Selection([
+        ('partner_ledger', 'Partner Ledger'),
+        ('aged_receivable', 'Aged Receivable'),
+        ('aged_payable', 'Aged Payable'),
+    ], string='Report', required=True, default='partner_ledger')
+
+    date_from = fields.Date(string='Date From')
+    date_to = fields.Date(string='Date To', required=True,
+                          default=fields.Date.context_today)
+    company_id = fields.Many2one(
+        'res.company', string='Company',
+        default=lambda self: self.env.company)
+
+    file_data = fields.Binary(string='File', readonly=True)
+    file_name = fields.Char(string='File Name', readonly=True)
+
+    def action_generate(self):
+        """Generate the flat XLSX file using Odoo native export + flatten."""
+        self.ensure_one()
+        if not openpyxl:
+            raise UserError(_('Python library openpyxl is not installed.'))
+
+        # 1. Resolve the target account.report record
+        xmlid = REPORT_XMLID.get(self.report_type)
+        if not xmlid:
+            raise UserError(_('Unknown report type: %s') % self.report_type)
+        report = self.env.ref(xmlid)
+
+        # 2. Build report options with unfold_all=True
+        date_to = self.date_to
+        date_from = self.date_from or fields.Date.to_date('1900-01-01')
+        options = report.with_context(allowed_company_ids=self.company_id.ids).get_options({
+            'date': {
+                'mode': 'range',
+                'date_from': date_from.strftime('%Y-%m-%d'),
+                'date_to': date_to.strftime('%Y-%m-%d'),
+                'filter': 'custom',
+            },
+            'unfold_all': True,
+        })
+        # Force unfold_all in case get_options dropped it
+        options['unfold_all'] = True
+
+        # 3. Call Odoo's native XLSX export
+        try:
+            native_export = report.export_to_xlsx(options)
+        except Exception as e:
+            raise UserError(_('Native export failed: %s') % str(e))
+
+        # native_export is typically a dict like:
+        # {'file_name': '...', 'file_content': bytes, 'file_type': 'xlsx'}
+        # OR an ir.actions.act_url with file content stored elsewhere.
+        # Handle both shapes safely.
+        file_bytes = None
+        if isinstance(native_export, dict):
+            file_bytes = native_export.get('file_content')
+            if not file_bytes and 'file_data' in native_export:
+                file_bytes = native_export['file_data']
+                if isinstance(file_bytes, str):
+                    file_bytes = base64.b64decode(file_bytes)
+
+        if not file_bytes:
+            raise UserError(_(
+                'Could not extract XLSX bytes from native export. '
+                'Report returned: %s'
+            ) % type(native_export).__name__)
+
+        # 4. Post-process: insert Partner column, repeat partner name per row
+        flattened_bytes = self._flatten_xlsx(file_bytes)
+
+        # 5. Save to wizard and return download
+        filename = '%s_flat_%s.xlsx' % (
+            self.report_type, date_to.strftime('%Y%m%d'),
+        )
+        self.write({
+            'file_data': base64.b64encode(flattened_bytes),
+            'file_name': filename,
+        })
+
+        return {
+            'type': 'ir.actions.act_url',
+            'url': '/web/content/?model=%s&id=%d&field=file_data&filename_field=file_name&download=true' % (
+                self._name, self.id,
+            ),
+            'target': 'self',
+        }
+
+    def _flatten_xlsx(self, xlsx_bytes):
+        """Post-process Odoo's native XLSX to flatten partner hierarchy.
+
+        Logic:
+        - Find the column containing the first text label of each row (col A usually)
+        - Identify "partner header" rows: rows where col A has text but most
+          number columns are sums (typically all child columns empty or summed)
+        - For every "child" row below a partner header, prefix col A with the
+          partner name (or insert a new Partner column at position 0)
+        """
+        wb = openpyxl.load_workbook(io.BytesIO(xlsx_bytes))
+
+        for ws in wb.worksheets:
+            self._flatten_sheet(ws)
+
+        out = io.BytesIO()
+        wb.save(out)
+        out.seek(0)
+        return out.read()
+
+    def _flatten_sheet(self, ws):
+        """Walk rows of one sheet, repeat partner name on child rows.
+
+        Odoo's native account_reports XLSX puts partner header in column A,
+        with child rows visually indented (leading spaces in cell value).
+        We detect indented rows and assign them the latest non-indented label.
+        """
+        current_partner = None
+        partner_col = 1  # column A
+
+        # First pass: find min/max row, find indentation pattern
+        min_row = ws.min_row
+        max_row = ws.max_row
+
+        # Insert new column at position 1 ("Partner Name")
+        ws.insert_cols(1)
+
+        # Set header for the new column (in the row that has 'Invoice Date',
+        # 'At Date', etc. — typically row 3 or 4 in Odoo native exports)
+        # We scan for that header row.
+        header_row = None
+        for r in range(min_row, min(min_row + 6, max_row + 1)):
+            cell_b = ws.cell(row=r, column=2).value
+            if cell_b and isinstance(cell_b, str) and cell_b.strip() in (
+                'Invoice Date', 'Journal', 'At Date', 'Account', 'Reference',
+            ):
+                header_row = r
+                break
+
+        if header_row:
+            ws.cell(row=header_row, column=1, value='Partner')
+            header_cell = ws.cell(row=header_row, column=1)
+            header_cell.font = Font(bold=True)
+            header_cell.fill = PatternFill(
+                start_color='D9E1F2', end_color='D9E1F2', fill_type='solid')
+            header_cell.alignment = Alignment(horizontal='center')
+
+        # Second pass: walk data rows after the header
+        data_start = (header_row or min_row) + 1
+        for r in range(data_start, max_row + 1):
+            # The original column A is now column B (after insert)
+            label_cell = ws.cell(row=r, column=2)
+            label = label_cell.value
+
+            if label is None:
+                continue
+
+            if isinstance(label, str):
+                stripped = label.strip()
+                leading_spaces = len(label) - len(label.lstrip())
+
+                # Heuristic: rows starting with NO indent + non-empty text
+                # are partner header rows. Indented rows are children.
+                if leading_spaces == 0 and stripped:
+                    # This is a partner header row
+                    current_partner = stripped
+                    # Write partner name into new column 1 too (for consistency)
+                    ws.cell(row=r, column=1, value=current_partner)
+                else:
+                    # Child row — repeat parent's partner name
+                    if current_partner:
+                        ws.cell(row=r, column=1, value=current_partner)
+            else:
+                # Non-string cell (number, date) — repeat partner
+                if current_partner:
+                    ws.cell(row=r, column=1, value=current_partner)
+
+        # Set width of new column A
+        ws.column_dimensions['A'].width = 35
+PYEOF
+echo "Step 1 done: new wizard model written" && \
+\
+cat > models/__init__.py << 'EOF'
+from . import account_move
+# from . import account_report           # legacy Odoo 14 code, broken in Odoo 18
+from . import accounts_report_coa
+from . import mail
+from . import res_company
+# from . import account_report_expanded   # previous attempt, unused
+from . import partner_ledger_flat_export
+EOF
+echo "Step 2 done: init updated" && \
+\
+echo "Step 3: ensure openpyxl is installed in venv" && \
+~/Projects/Enconnex/.venv/bin/pip install openpyxl --quiet && \
+echo "openpyxl ready" && \
+\
+echo "All files updated. Now: PyCharm > stop Odoo > start with -u enconnex_account_report"
