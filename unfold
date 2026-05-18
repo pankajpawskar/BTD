@@ -5,7 +5,6 @@ path = 'models/partner_ledger_flat_export.py'
 with open(path) as f:
     content = f.read()
 
-# Replace _flatten_xlsx and all flatten methods with one unified clean version
 pattern = re.compile(
     r'    def _flatten_xlsx\(self, xlsx_bytes\):.*',
     re.DOTALL
@@ -14,21 +13,23 @@ pattern = re.compile(
 new_block = '''    def _flatten_xlsx(self, xlsx_bytes):
         """Post-process Odoo's native XLSX.
 
-        Unified logic for Partner Ledger, Aged Receivable, Aged Payable:
-        - Insert Partner column at A
-        - Identify partner-header rows (col A has text, col B is NULL)
-          -> capture partner name, mark for deletion
-        - Identify report-title rows (col A in known titles, col B is NULL)
-          -> mark for deletion
-        - Data rows (col B has value): tag with current partner
-        - Keep "Initial Balance" rows (meaningful data per partner)
-        - Delete all marked rows at end
+        Detection rules:
+        - col B is NULL + label is a known REPORT TITLE -> delete row
+        - col B is NULL + label is a SUBHEADER like "Initial Balance"
+          -> KEEP row, tag with current partner (data is in number cols)
+        - col B is NULL + any OTHER text in col A -> this IS the partner
+          header. Capture partner name, delete row.
+        - col B has value -> data row. Tag with current partner.
         """
         from openpyxl.styles import Font, PatternFill, Alignment
         wb = openpyxl.load_workbook(io.BytesIO(xlsx_bytes))
 
         REPORT_TITLES = {
             'aged receivable', 'aged payable', 'partner ledger',
+        }
+        # Subheader rows that should be KEPT but not treated as partner name
+        SUBHEADERS = {
+            'initial balance', 'total', 'unaffected earnings',
         }
 
         for ws in wb.worksheets:
@@ -37,18 +38,18 @@ new_block = '''    def _flatten_xlsx(self, xlsx_bytes):
 
             ws.insert_cols(1)
 
-            # Find the column-header row
             header_row = None
             for r in range(min_row, min(min_row + 8, max_row + 1)):
                 cell_b = ws.cell(row=r, column=2).value
                 if cell_b and isinstance(cell_b, str) and cell_b.strip() in (
-                    'Journal', 'Account', 'Invoice Date', 'At Date', 'Reference',
+                    'Journal', 'Account', 'Invoice Date', 'At Date',
+                    'Reference',
                 ):
                     header_row = r
                     break
 
             if header_row:
-                hc = ws.cell(row=header_row, column=1, value='Partner')
+                hc = ws.cell(row=header_row, column=1, value='Partner Name')
                 hc.font = Font(bold=True)
                 hc.fill = PatternFill(start_color='D9E1F2',
                                       end_color='D9E1F2',
@@ -60,23 +61,16 @@ new_block = '''    def _flatten_xlsx(self, xlsx_bytes):
             data_start = (header_row or min_row) + 1
 
             for r in range(data_start, max_row + 1):
-                val_b_orig = ws.cell(row=r, column=2).value
-                val_a_orig = ws.cell(row=r, column=3).value
-                # After insert_cols(1), original col A is now col 2, original B is col 3
-                # Wait - let's recompute: insert_cols inserts BEFORE position 1,
-                # so original col 1 (A) becomes col 2 (B), original B becomes C.
-                # Re-read:
-                col_a_new = ws.cell(row=r, column=1).value  # newly inserted, empty
-                col_b_now = ws.cell(row=r, column=2).value  # was original col A
-                col_c_now = ws.cell(row=r, column=3).value  # was original col B
-
-                label = col_b_now
-                second = col_c_now
+                # After insert_cols(1):
+                # col 1 = newly inserted Partner col (empty)
+                # col 2 = was original col A (label like partner / Initial Balance / move name)
+                # col 3 = was original col B (Journal code / Invoice Date / NULL)
+                label = ws.cell(row=r, column=2).value
+                second = ws.cell(row=r, column=3).value
 
                 if label is None:
                     continue
                 if not isinstance(label, str):
-                    # numeric label - treat as data row
                     if current_partner:
                         ws.cell(row=r, column=1, value=current_partner)
                     continue
@@ -87,22 +81,31 @@ new_block = '''    def _flatten_xlsx(self, xlsx_bytes):
 
                 lower = stripped.lower()
 
-                # Report-title row -> delete
+                # Report title -> delete
                 if lower in REPORT_TITLES:
                     rows_to_delete.append(r)
                     continue
 
-                # If second col (was original col B) is empty -> partner-header
-                if second is None or (isinstance(second, str) and not second.strip()):
-                    # Partner-header row
+                # Subheader (Initial Balance / Total) -> KEEP, tag with partner
+                if lower in SUBHEADERS:
+                    if current_partner:
+                        ws.cell(row=r, column=1, value=current_partner)
+                    continue
+
+                # second col empty -> this is a partner-header row
+                is_empty_second = (
+                    second is None
+                    or (isinstance(second, str) and not second.strip())
+                )
+                if is_empty_second:
+                    # Partner header
                     current_partner = stripped
                     rows_to_delete.append(r)
                 else:
-                    # Data row -> tag with partner
+                    # Data row
                     if current_partner:
                         ws.cell(row=r, column=1, value=current_partner)
 
-            # Delete marked rows bottom-up
             for r in sorted(rows_to_delete, reverse=True):
                 ws.delete_rows(r, 1)
 
@@ -117,6 +120,6 @@ new_block = '''    def _flatten_xlsx(self, xlsx_bytes):
 content = pattern.sub(new_block, content)
 with open(path, 'w') as f:
     f.write(content)
-print("OK: unified _flatten_xlsx based on actual Odoo structure")
+print("OK: Initial Balance now handled as subheader, partner name preserved")
 PYMOD
 echo "Done. Restart Odoo with -u enconnex_account_report"
