@@ -1,29 +1,122 @@
-cd ~/Projects/Enconnex && \
-source .venv/bin/activate && \
-echo "
-import openpyxl, io
-report = env.ref('account_reports.aged_receivable_report')
-options = report.get_options({
-    'date': {'mode': 'single', 'date_to': '2026-05-18', 'filter': 'today'},
-    'unfold_all': True,
-})
-options['unfold_all'] = True
-result = report.export_to_xlsx(options)
-file_bytes = result.get('file_content') if isinstance(result, dict) else None
-if file_bytes:
-    wb = openpyxl.load_workbook(io.BytesIO(file_bytes))
-    ws = wb.active
-    print(f'=== AGED RECEIVABLE ===')
-    print(f'Sheet: {ws.title}, rows: {ws.max_row}, cols: {ws.max_column}')
-    for r in range(1, min(25, ws.max_row + 1)):
-        row_vals = []
-        for c in range(1, min(11, ws.max_column + 1)):
-            v = ws.cell(row=r, column=c).value
-            if v is None:
-                row_vals.append('NULL')
-            elif isinstance(v, str):
-                row_vals.append(f'\"{v[:40]}\"')
-            else:
-                row_vals.append(str(v))
-        print(f'R{r}: ' + ' | '.join(row_vals))
-" | python3 odoo/odoo-bin shell -c odoo.conf -d enconnex_dev --no-http 2>&1 | tail -40
+cd ~/Projects/Enconnex/custom/enconnex_account_report && \
+python3 << 'PYMOD'
+import re
+path = 'models/partner_ledger_flat_export.py'
+with open(path) as f:
+    content = f.read()
+
+# Replace _flatten_xlsx and all flatten methods with one unified clean version
+pattern = re.compile(
+    r'    def _flatten_xlsx\(self, xlsx_bytes\):.*',
+    re.DOTALL
+)
+
+new_block = '''    def _flatten_xlsx(self, xlsx_bytes):
+        """Post-process Odoo's native XLSX.
+
+        Unified logic for Partner Ledger, Aged Receivable, Aged Payable:
+        - Insert Partner column at A
+        - Identify partner-header rows (col A has text, col B is NULL)
+          -> capture partner name, mark for deletion
+        - Identify report-title rows (col A in known titles, col B is NULL)
+          -> mark for deletion
+        - Data rows (col B has value): tag with current partner
+        - Keep "Initial Balance" rows (meaningful data per partner)
+        - Delete all marked rows at end
+        """
+        from openpyxl.styles import Font, PatternFill, Alignment
+        wb = openpyxl.load_workbook(io.BytesIO(xlsx_bytes))
+
+        REPORT_TITLES = {
+            'aged receivable', 'aged payable', 'partner ledger',
+        }
+
+        for ws in wb.worksheets:
+            min_row = ws.min_row
+            max_row = ws.max_row
+
+            ws.insert_cols(1)
+
+            # Find the column-header row
+            header_row = None
+            for r in range(min_row, min(min_row + 8, max_row + 1)):
+                cell_b = ws.cell(row=r, column=2).value
+                if cell_b and isinstance(cell_b, str) and cell_b.strip() in (
+                    'Journal', 'Account', 'Invoice Date', 'At Date', 'Reference',
+                ):
+                    header_row = r
+                    break
+
+            if header_row:
+                hc = ws.cell(row=header_row, column=1, value='Partner')
+                hc.font = Font(bold=True)
+                hc.fill = PatternFill(start_color='D9E1F2',
+                                      end_color='D9E1F2',
+                                      fill_type='solid')
+                hc.alignment = Alignment(horizontal='center')
+
+            current_partner = None
+            rows_to_delete = []
+            data_start = (header_row or min_row) + 1
+
+            for r in range(data_start, max_row + 1):
+                val_b_orig = ws.cell(row=r, column=2).value
+                val_a_orig = ws.cell(row=r, column=3).value
+                # After insert_cols(1), original col A is now col 2, original B is col 3
+                # Wait - let's recompute: insert_cols inserts BEFORE position 1,
+                # so original col 1 (A) becomes col 2 (B), original B becomes C.
+                # Re-read:
+                col_a_new = ws.cell(row=r, column=1).value  # newly inserted, empty
+                col_b_now = ws.cell(row=r, column=2).value  # was original col A
+                col_c_now = ws.cell(row=r, column=3).value  # was original col B
+
+                label = col_b_now
+                second = col_c_now
+
+                if label is None:
+                    continue
+                if not isinstance(label, str):
+                    # numeric label - treat as data row
+                    if current_partner:
+                        ws.cell(row=r, column=1, value=current_partner)
+                    continue
+
+                stripped = label.strip()
+                if not stripped:
+                    continue
+
+                lower = stripped.lower()
+
+                # Report-title row -> delete
+                if lower in REPORT_TITLES:
+                    rows_to_delete.append(r)
+                    continue
+
+                # If second col (was original col B) is empty -> partner-header
+                if second is None or (isinstance(second, str) and not second.strip()):
+                    # Partner-header row
+                    current_partner = stripped
+                    rows_to_delete.append(r)
+                else:
+                    # Data row -> tag with partner
+                    if current_partner:
+                        ws.cell(row=r, column=1, value=current_partner)
+
+            # Delete marked rows bottom-up
+            for r in sorted(rows_to_delete, reverse=True):
+                ws.delete_rows(r, 1)
+
+            ws.column_dimensions['A'].width = 35
+
+        out = io.BytesIO()
+        wb.save(out)
+        out.seek(0)
+        return out.read()
+'''
+
+content = pattern.sub(new_block, content)
+with open(path, 'w') as f:
+    f.write(content)
+print("OK: unified _flatten_xlsx based on actual Odoo structure")
+PYMOD
+echo "Done. Restart Odoo with -u enconnex_account_report"
