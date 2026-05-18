@@ -1,94 +1,33 @@
 cd ~/Projects/Enconnex/custom/enconnex_account_report && \
 python3 << 'PYMOD'
-import re
-
 path = 'models/partner_ledger_flat_export.py'
 with open(path) as f:
     content = f.read()
 
-# Replace the _flatten_sheet method with cleaner version that deletes header rows
-old_method = '''    def _flatten_sheet(self, ws):
-        """Walk rows of one sheet, repeat partner name on child rows.
-
-        Odoo's native account_reports XLSX puts partner header in column A,
-        with child rows visually indented (leading spaces in cell value).
-        We detect indented rows and assign them the latest non-indented label.
-        """
-        current_partner = None
-        partner_col = 1  # column A
-
-        # First pass: find min/max row, find indentation pattern
-        min_row = ws.min_row
-        max_row = ws.max_row
-
-        # Insert new column at position 1 ("Partner Name")
-        ws.insert_cols(1)
-
-        # Set header for the new column (in the row that has 'Invoice Date',
-        # 'At Date', etc. \xe2\x80\x94 typically row 3 or 4 in Odoo native exports)
-        # We scan for that header row.
-        header_row = None
-        for r in range(min_row, min(min_row + 6, max_row + 1)):
-            cell_b = ws.cell(row=r, column=2).value
-            if cell_b and isinstance(cell_b, str) and cell_b.strip() in (
-                'Invoice Date', 'Journal', 'At Date', 'Account', 'Reference',
-            ):
-                header_row = r
-                break
-
-        if header_row:
-            ws.cell(row=header_row, column=1, value='Partner')
-            header_cell = ws.cell(row=header_row, column=1)
-            header_cell.font = Font(bold=True)
-            header_cell.fill = PatternFill(
-                start_color='D9E1F2', end_color='D9E1F2', fill_type='solid')
-            header_cell.alignment = Alignment(horizontal='center')
-
-        # Second pass: walk data rows after the header
-        data_start = (header_row or min_row) + 1
-        for r in range(data_start, max_row + 1):
-            # The original column A is now column B (after insert)
-            label_cell = ws.cell(row=r, column=2)
-            label = label_cell.value
-
-            if label is None:
-                continue
-
-            if isinstance(label, str):
-                stripped = label.strip()
-                leading_spaces = len(label) - len(label.lstrip())
-
-                # Heuristic: rows starting with NO indent + non-empty text
-                # are partner header rows. Indented rows are children.
-                if leading_spaces == 0 and stripped:
-                    # This is a partner header row
-                    current_partner = stripped
-                    # Write partner name into new column 1 too (for consistency)
-                    ws.cell(row=r, column=1, value=current_partner)
-                else:
-                    # Child row \xe2\x80\x94 repeat parent's partner name
-                    if current_partner:
-                        ws.cell(row=r, column=1, value=current_partner)
-            else:
-                # Non-string cell (number, date) \xe2\x80\x94 repeat partner
-                if current_partner:
-                    ws.cell(row=r, column=1, value=current_partner)
-
-        # Set width of new column A
-        ws.column_dimensions['A'].width = 35'''
+# Replace entire _flatten_sheet method with a cleaner version
+import re
+pattern = re.compile(r'    def _flatten_sheet\(self, ws\):.*?(?=\n    def |\Z)', re.DOTALL)
 
 new_method = '''    def _flatten_sheet(self, ws):
         """Insert Partner column at A, fill with parent partner name on
-        child rows, then DELETE the original partner-header rows so the
-        sheet only contains child rows with Partner as a data column.
+        child/data rows, delete partner-header rows AND the report-title
+        row (e.g. 'Aged Payable', 'Partner Ledger'). Final sheet has
+        clean tabular structure with Partner as a real column.
         """
+        from openpyxl.styles import Font, PatternFill, Alignment
         min_row = ws.min_row
         max_row = ws.max_row
 
-        # Insert new column at position 1 (Partner)
+        # Known report-title strings to strip
+        REPORT_TITLES = {
+            'partner ledger', 'aged payable', 'aged receivable',
+            'partner reports',
+        }
+
+        # Insert new column A
         ws.insert_cols(1)
 
-        # Find the header row (the one containing 'Invoice Date', 'Journal' etc.)
+        # Find header row (the one with column labels like Invoice Date)
         header_row = None
         for r in range(min_row, min(min_row + 8, max_row + 1)):
             cell_b = ws.cell(row=r, column=2).value
@@ -105,47 +44,47 @@ new_method = '''    def _flatten_sheet(self, ws):
                                   fill_type='solid')
             hc.alignment = Alignment(horizontal='center')
 
-        # First pass: walk rows AFTER header, assign partner name to col A
-        # Track which rows are partner-header rows (to delete in pass 2)
+        # First pass: assign partner name, mark rows to delete
         current_partner = None
         rows_to_delete = []
         data_start = (header_row or min_row) + 1
 
         for r in range(data_start, max_row + 1):
             label = ws.cell(row=r, column=2).value
-            if label is None:
-                # blank row -- leave it (may be spacing) but no partner value
+            if label is None or label == '':
                 continue
-            if isinstance(label, str):
-                stripped = label.strip()
-                leading = len(label) - len(label.lstrip())
-                if leading == 0 and stripped:
-                    # This IS a partner-header row -> remember partner & mark for deletion
-                    current_partner = stripped
-                    rows_to_delete.append(r)
-                else:
-                    # Child / data row -> set Partner column
-                    if current_partner:
-                        ws.cell(row=r, column=1, value=current_partner)
+            if not isinstance(label, str):
+                if current_partner:
+                    ws.cell(row=r, column=1, value=current_partner)
+                continue
+
+            stripped = label.strip()
+            leading = len(label) - len(label.lstrip())
+
+            # Skip / delete the report-title rows entirely
+            if stripped.lower() in REPORT_TITLES:
+                rows_to_delete.append(r)
+                continue
+
+            if leading == 0 and stripped:
+                # Partner-header row -> remember partner, delete this row
+                current_partner = stripped
+                rows_to_delete.append(r)
             else:
-                # Non-string cell in col B -> still a data row
+                # Data row -> tag with current partner
                 if current_partner:
                     ws.cell(row=r, column=1, value=current_partner)
 
-        # Second pass: delete partner-header rows from bottom up (so row
-        # numbers above don\\\'t shift while we are deleting)
+        # Second pass: delete marked rows bottom-up
         for r in sorted(rows_to_delete, reverse=True):
             ws.delete_rows(r, 1)
 
-        ws.column_dimensions['A'].width = 35'''
+        ws.column_dimensions['A'].width = 35
+'''
 
-if old_method not in content:
-    print("ERROR: could not find old _flatten_sheet method to replace")
-    raise SystemExit(1)
-
-content = content.replace(old_method, new_method)
+content = pattern.sub(new_method, content)
 with open(path, 'w') as f:
     f.write(content)
-print("OK: _flatten_sheet rewritten - partner header rows will now be deleted")
+print("OK: _flatten_sheet rewritten cleanly")
 PYMOD
 echo "Done. Restart Odoo with -u enconnex_account_report"
