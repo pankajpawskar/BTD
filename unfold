@@ -2,28 +2,22 @@ cd ~/Projects/Enconnex && \
 source .venv/bin/activate && \
 echo "
 import openpyxl, io
-report = env.ref('account_reports.partner_ledger_report')
+report = env.ref('account_reports.aged_receivable_report')
 options = report.get_options({
-    'date': {'mode': 'range', 'date_from': '2026-01-01',
-             'date_to': '2026-05-18', 'filter': 'custom'},
+    'date': {'mode': 'single', 'date_to': '2026-05-18', 'filter': 'today'},
     'unfold_all': True,
 })
 options['unfold_all'] = True
 result = report.export_to_xlsx(options)
-if isinstance(result, dict):
-    file_bytes = result.get('file_content')
-    print('Result dict keys:', list(result.keys()))
-else:
-    print('Result type:', type(result).__name__)
-    file_bytes = None
+file_bytes = result.get('file_content') if isinstance(result, dict) else None
 if file_bytes:
     wb = openpyxl.load_workbook(io.BytesIO(file_bytes))
     ws = wb.active
-    print(f'=== PARTNER LEDGER ===')
+    print(f'=== AGED RECEIVABLE ===')
     print(f'Sheet: {ws.title}, rows: {ws.max_row}, cols: {ws.max_column}')
     for r in range(1, min(25, ws.max_row + 1)):
         row_vals = []
-        for c in range(1, min(10, ws.max_column + 1)):
+        for c in range(1, min(11, ws.max_column + 1)):
             v = ws.cell(row=r, column=c).value
             if v is None:
                 row_vals.append('NULL')
@@ -32,4 +26,4 @@ if file_bytes:
             else:
                 row_vals.append(str(v))
         print(f'R{r}: ' + ' | '.join(row_vals))
-" | python3 odoo/odoo-bin shell -c odoo.conf -d enconnex_dev --no-http 2>&1 | tail -50
+" | python3 odoo/odoo-bin shell -c odoo.conf -d enconnex_dev --no-http 2>&1 | tail -40
