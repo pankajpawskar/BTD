@@ -1,0 +1,2 @@
+grep -l "export_to_xlsx\|export_file" ~/Projects/Enconnex/odoo/odoo/addons/account_reports/models/account_report.py | head -1 && \
+grep -n "def export_to_\|def export_file\|def get_xlsx\|def _xlsx" ~/Projects/Enconnex/odoo/odoo/addons/account_reports/models/account_report.py
