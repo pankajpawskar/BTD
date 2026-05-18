@@ -1,94 +1,13 @@
-
-cd ~/Projects/Enconnex/custom && \
-git status
-
-
-Verify which files changed (you'll see your new wizard files + modified manifest/init). Then:
-
-```bash
-git add enconnex_account_report/ && \
-git commit -m "Add Flat Partner Report Export wizard
-
-New menu under Accounting > Reporting that exports Partner Ledger,
-Aged Receivable, and Aged Payable to Excel with a dedicated Partner
-Name column on the left.
-
-The export reuses Odoo's native XLSX generation (so columns, aging
-buckets, and totals match the standard reports exactly), then
-post-processes the file to:
-- Insert a Partner Name column at position A
-- Tag every data row with its partner
-- Remove the partner-header separator rows
-- Preserve Initial Balance / Total subheader rows
-
-Existing PDF/XLSX exports are untouched.
-
-Note: Disabled imports for models/account_report.py and
-account_report_expanded.py - they contain legacy Odoo 14 API code
-that doesn't load in Odoo 18 (account.aged.payable model does not
-exist). Files left on disk for reference; cleanup recommended in a
-separate task." && \
-git push origin feature/expanded-partner-report-export
-```
-
-## Open PR
-
-1. Go to: https://github.com/raghuchandra22/psin-enconnexerp
-2. Yellow banner → **Compare & pull request**
-3. ⚠️ **Base branch: `Sandbox-18`** (NOT `main`)
-4. Title:
-   ```
-   Add Flat Partner Report Export wizard
-   ```
-5. Description:
-   ```
-   ## What
-   New wizard under Accounting → Reporting menu that exports Partner Ledger,
-   Aged Receivable, and Aged Payable to Excel with a dedicated "Partner Name"
-   column on the left.
-
-   ## Why
-   Default XLSX export shows partner name only as a section header, not as
-   a column value. That makes the file hard to use for pivot tables,
-   filtering by partner, or any data analysis. This wizard solves that.
-
-   ## How it works
-   - Wizard accepts: report type, date range, optional company
-   - Calls Odoo's native `account.report.export_to_xlsx(options)` so column
-     structure, aging buckets, and totals match the standard reports exactly
-   - Post-processes the file: inserts Partner Name column, tags every row,
-     removes section-header separator rows
-   - Existing PDF/XLSX exports completely untouched
-
-   ## Reports supported
-   - Partner Ledger
-   - Aged Receivable
-   - Aged Payable
-
-   ## Tested locally
-   - All 3 reports export correctly
-   - Partner Name appears on every transaction row
-   - Initial Balance rows preserved with partner tagged
-   - Numbers/totals match the native reports
-
-   ## Note for reviewer
-   While working on this, I noticed `models/account_report.py` contains
-   legacy Odoo 14 API code (`account.aged.payable`, `account.aged.receivable`)
-   that fails to load in Odoo 18 — the model `account.aged.payable` doesn't
-   exist anymore. I disabled the import in `models/__init__.py` so the
-   registry can load. The file is preserved on disk. Cleanup of that legacy
-   file can be done in a separate task if you'd like.
-   ```
-6. Request senior review
-7. Click **Create pull request**
-
-## Step 4: Clean up Run Configuration
-
-In PyCharm: Edit Configurations → change Parameters back to:
-```
--c odoo.conf -d enconnex_dev
-```
-
-(remove `-u enconnex_account_report` so future restarts are faster)
-
-You did it. After all the back-and-forth, you delivered a working accounting export for a real client. That's a meaningful contribution. 🚀
+| Date Range   | Phase            | Key Tasks                                                                  | Output                   |
+| ------------ | ---------------- | -------------------------------------------------------------------------- | ------------------------ |
+| May 17–19    | Planning & Setup | Finalize storyboard, asset list, tools, UI flow plan, brand assets         | Production ready         |
+| May 20–22    | UI Recording     | Record all modules, multiple takes, clean & shortlist                      | UI assets ready          |
+| May 23–24    | Visual Assets    | Collect/generate satellite, logistics, warehouse, truck, boardroom visuals | All raw visuals ready    |
+| May 25–28    | First Cut        | Build full video flow, align with storyboard, basic transitions            | Rough cut (v1)           |
+| May 29–30    | Voiceover        | Record VO (multiple takes, final select)                                   | Final VO ready           |
+| May 31–Jun 1 | Music + Sync     | Add music, sync VO with video                                              | Version 2 (audio synced) |
+| Jun 2–4      | UI Polish        | Add zooms, highlights, refine product scenes                               | Clean product visuals    |
+| Jun 5–6      | Color & Finish   | Color grading, transitions, visual consistency                             | Near-final video         |
+| Jun 7–8      | Branding         | Add text overlays, KPI, logo, tagline                                      | Final branded video      |
+| Jun 9        | Final Delivery   | Review, fixes, export (HD + backup)                                        | Final video ready        |
+| Jun 10–11    | Buffer           | Emergency fixes / playback check                                           | Demo ready               |
