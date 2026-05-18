@@ -1,33 +1,22 @@
 cd ~/Projects/Enconnex/custom/enconnex_account_report && \
 python3 << 'PYMOD'
+import re
 path = 'models/partner_ledger_flat_export.py'
 with open(path) as f:
     content = f.read()
 
-# Replace entire _flatten_sheet method with a cleaner version
-import re
 pattern = re.compile(r'    def _flatten_sheet\(self, ws\):.*?(?=\n    def |\Z)', re.DOTALL)
 
 new_method = '''    def _flatten_sheet(self, ws):
-        """Insert Partner column at A, fill with parent partner name on
-        child/data rows, delete partner-header rows AND the report-title
-        row (e.g. 'Aged Payable', 'Partner Ledger'). Final sheet has
-        clean tabular structure with Partner as a real column.
+        """Insert Partner column at A, fill with partner name on every row.
+        Then delete rows where col A == col B (partner-header duplicates).
         """
         from openpyxl.styles import Font, PatternFill, Alignment
         min_row = ws.min_row
         max_row = ws.max_row
 
-        # Known report-title strings to strip
-        REPORT_TITLES = {
-            'partner ledger', 'aged payable', 'aged receivable',
-            'partner reports',
-        }
-
-        # Insert new column A
         ws.insert_cols(1)
 
-        # Find header row (the one with column labels like Invoice Date)
         header_row = None
         for r in range(min_row, min(min_row + 8, max_row + 1)):
             cell_b = ws.cell(row=r, column=2).value
@@ -44,38 +33,35 @@ new_method = '''    def _flatten_sheet(self, ws):
                                   fill_type='solid')
             hc.alignment = Alignment(horizontal='center')
 
-        # First pass: assign partner name, mark rows to delete
         current_partner = None
-        rows_to_delete = []
         data_start = (header_row or min_row) + 1
 
         for r in range(data_start, max_row + 1):
-            label = ws.cell(row=r, column=2).value
-            if label is None or label == '':
+            label_b = ws.cell(row=r, column=2).value
+            if label_b is None:
                 continue
-            if not isinstance(label, str):
+            if isinstance(label_b, str):
+                stripped = label_b.strip()
+                if not stripped:
+                    continue
+                leading = len(label_b) - len(label_b.lstrip())
+                if leading == 0:
+                    current_partner = stripped
                 if current_partner:
                     ws.cell(row=r, column=1, value=current_partner)
-                continue
-
-            stripped = label.strip()
-            leading = len(label) - len(label.lstrip())
-
-            # Skip / delete the report-title rows entirely
-            if stripped.lower() in REPORT_TITLES:
-                rows_to_delete.append(r)
-                continue
-
-            if leading == 0 and stripped:
-                # Partner-header row -> remember partner, delete this row
-                current_partner = stripped
-                rows_to_delete.append(r)
             else:
-                # Data row -> tag with current partner
                 if current_partner:
                     ws.cell(row=r, column=1, value=current_partner)
 
-        # Second pass: delete marked rows bottom-up
+        rows_to_delete = []
+        for r in range(data_start, max_row + 1):
+            val_a = ws.cell(row=r, column=1).value
+            val_b = ws.cell(row=r, column=2).value
+            if not val_a or not val_b:
+                continue
+            if str(val_a).strip() == str(val_b).strip():
+                rows_to_delete.append(r)
+
         for r in sorted(rows_to_delete, reverse=True):
             ws.delete_rows(r, 1)
 
@@ -85,6 +71,6 @@ new_method = '''    def _flatten_sheet(self, ws):
 content = pattern.sub(new_method, content)
 with open(path, 'w') as f:
     f.write(content)
-print("OK: _flatten_sheet rewritten cleanly")
+print("OK: updated")
 PYMOD
-echo "Done. Restart Odoo with -u enconnex_account_report"
+echo "Done. Now in PyCharm: stop Odoo (red square), then start (green play) with -u enconnex_account_report in Run Config parameters"
