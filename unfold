@@ -130,3 +130,118 @@ Once `psql -U odoo -l` lists your databases (`enconnex_dev`, `bytedance_dev`), P
 
 
 brew services stop postgresql@15 ; sleep 2 ; pkill -9 postgres 2>/dev/null ; sleep 2 ; rm -f /opt/homebrew/var/postgresql@15/postmaster.pid && brew services start postgresql@15 && sleep 5 && psql -U odoo -l
+
+Two changes needed:
+
+1. **Move menu** from `Accounting → Reporting` to `Accounting → Reporting → Partner Reports` and rename to "Exports"
+2. **Fix blank headers** — "Partner Name" and "Invoice" should show in the Excel column headers
+
+Let me investigate before writing code. The "Partner Name" header should be there (I added it). And "Invoice" — looking at the Partner Ledger native export, the first column (where invoice/move name goes) has NO column header in row 3. That's why it's blank.
+
+## Two fixes in one command
+
+```bash
+cd ~/Projects/Enconnex/custom/enconnex_account_report && \
+\
+echo "=== Fix 1: Move menu to Partner Reports + rename ===" && \
+python3 << 'PYMENU'
+path = 'views/partner_ledger_flat_export_views.xml'
+with open(path) as f:
+    content = f.read()
+content = content.replace(
+    'parent="account.menu_finance_reports"',
+    'parent="account_reports.menu_account_reports_partners_reports"'
+)
+content = content.replace(
+    'name="Flat Partner Report Export"',
+    'name="Exports"'
+)
+content = content.replace(
+    '<field name="name">Flat Partner Report Export</field>',
+    '<field name="name">Exports</field>'
+)
+with open(path, 'w') as f:
+    f.write(content)
+print("Menu moved + renamed")
+PYMENU
+\
+echo "=== Fix 2: Add Invoice column header to flatten code ===" && \
+python3 << 'PYHEAD'
+path = 'models/partner_ledger_flat_export.py'
+with open(path) as f:
+    content = f.read()
+
+# After the partner header cell, also set col 2 (was col A) header to "Invoice"
+# Find the block where header_row sets col 1 partner name
+old = '''            if header_row:
+                hc = ws.cell(row=header_row, column=1, value='Partner Name')
+                hc.font = Font(bold=True)
+                hc.fill = PatternFill(start_color='D9E1F2',
+                                      end_color='D9E1F2',
+                                      fill_type='solid')
+                hc.alignment = Alignment(horizontal='center')'''
+
+new = '''            if header_row:
+                # Header for new column A
+                hc = ws.cell(row=header_row, column=1, value='Partner Name')
+                hc.font = Font(bold=True)
+                hc.fill = PatternFill(start_color='D9E1F2',
+                                      end_color='D9E1F2',
+                                      fill_type='solid')
+                hc.alignment = Alignment(horizontal='center')
+                # Header for column B (was original col A) - the move/invoice name
+                ic = ws.cell(row=header_row, column=2, value='Invoice')
+                ic.font = Font(bold=True)
+                ic.fill = PatternFill(start_color='D9E1F2',
+                                      end_color='D9E1F2',
+                                      fill_type='solid')
+                ic.alignment = Alignment(horizontal='center')'''
+
+if old in content:
+    content = content.replace(old, new)
+    with open(path, 'w') as f:
+        f.write(content)
+    print("Invoice header added")
+else:
+    print("WARNING: could not find header block - check file manually")
+PYHEAD
+\
+echo "=== Verify menu IDs exist in DB ===" && \
+psql -U odoo -d enconnex_dev -P pager=off -c "SELECT module || '.' || name AS xmlid FROM ir_model_data WHERE model='ir.ui.menu' AND module='account_reports' AND name LIKE '%partner%';" && \
+\
+echo "=== DONE. Restart Odoo with -u enconnex_account_report ==="
+```
+
+## What this does
+
+1. Changes menu parent from `account.menu_finance_reports` to `account_reports.menu_account_reports_partners_reports` (the Partner Reports submenu)
+2. Renames menu label from "Flat Partner Report Export" to **"Exports"**
+3. Adds **"Invoice"** as the header for column B (the move/invoice name column that was blank in row 3)
+4. Verifies the parent menu ID exists in your DB
+
+## ⚠️ The parent menu ID might be different
+
+The exact external ID `account_reports.menu_account_reports_partners_reports` is my best guess for Odoo 18. The verification step shows what's actually in your DB. If empty result → I'll adjust to the correct ID.
+
+## Reply with
+
+The output of the verify step (the psql query at the end) — it lists the Partner Reports menu IDs that actually exist in your Odoo 18.
+
+Then:
+- If the ID I used IS in the list → restart Odoo and test
+- If different → tell me which ID matches "Partner Reports" and I'll give a one-line fix
+
+## Then restart and test
+
+In PyCharm: stop Odoo → ▶ (with `-u enconnex_account_report`)
+
+In browser: **Accounting → Reporting → Partner Reports** → new "Exports" menu item should appear at the bottom of that submenu.
+
+Export Partner Ledger → check Excel headers: row 3 should now show "Partner Name | Invoice | Journal | Account | Invoice Date | Due Date | Matching | Debit | Credit | Amount Currency"
+
+## Reply
+
+- Output of psql verify
+- ✅ All working after restart → final commit + push
+- ❌ Menu wrong location → I'll fix
+- ❌ Header still blank → screenshot
