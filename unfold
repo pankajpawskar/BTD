@@ -333,3 +333,14 @@ cd ~/Projects/Enconnex/custom/enconnex_account_report && \
 sed -i '' 's|parent="account_reports.menu_account_reports_partners_reports"|parent="account_reports.menu_action_account_report_partner_ledger"|' views/partner_ledger_flat_export_views.xml && \
 grep "parent=" views/partner_ledger_flat_export_views.xml && \
 echo "✅ Parent fixed - menu will appear next to Partner Ledger"
+
+
+
+echo "=== XML file content ===" && \
+cat ~/Projects/Enconnex/custom/enconnex_account_report/views/partner_ledger_flat_export_views.xml && \
+echo "" && \
+echo "=== Manifest data list ===" && \
+grep -A 15 "'data':" ~/Projects/Enconnex/custom/enconnex_account_report/__manifest__.py && \
+echo "" && \
+echo "=== Python file Invoice header check ===" && \
+grep -B 1 -A 3 "Invoice" ~/Projects/Enconnex/custom/enconnex_account_report/models/partner_ledger_flat_export.py | head -30
