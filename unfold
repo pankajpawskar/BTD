@@ -72,3 +72,57 @@ Easy to fill 50-100GB without noticing.
 3. Whether Postgres starts after
 
 We'll get back to PR push once disk space is fixed.
+
+
+
+Good news / Bad news:
+
+## Good news ✅
+- Disk: **460GB total, 345GB free** — plenty of space
+- The earlier "100% full" reading was a misleading row about `/private/var/folders` (a small temp partition), not your main disk
+- Postgres says "Successfully started"
+
+## Bad news ❌
+- Postgres started but immediately crashed: `psql: error: connection to server on socket "/tmp/.s.PGSQL.5432" failed: No such file or directory`
+- This means Postgres is failing silently — log file might tell us why
+
+## Run this to diagnose
+
+```bash
+ls /opt/homebrew/var/log/ | grep -i post && tail -50 /opt/homebrew/var/log/postgresql@15.log 2>/dev/null || tail -50 /opt/homebrew/var/postgresql@15/server.log 2>/dev/null
+```
+
+Paste output. The Postgres error log will tell us exactly why it can't start.
+
+## Common quick fixes — try if log doesn't help
+
+### Fix 1: Remove stale PID file (most common cause)
+
+```bash
+brew services stop postgresql@15 ; rm -f /opt/homebrew/var/postgresql@15/postmaster.pid && brew services start postgresql@15 && sleep 3 && psql -U odoo -l
+```
+
+### Fix 2: Reinstall postgres@15 (nuclear option, but databases preserved)
+
+```bash
+brew services stop postgresql@15 ; brew reinstall postgresql@15 && brew services start postgresql@15 && sleep 5 && psql -U odoo -l
+```
+
+## How to start Odoo in PyCharm normally
+
+Once Postgres works (test with `psql -U odoo -l` showing your databases):
+
+1. Open PyCharm
+2. Top-right: dropdown shows `Enconnex Odoo 18` (or `Bytedance Odoo 19`)
+3. Edit Configurations → verify Parameters: `-c odoo.conf -d enconnex_dev`
+4. (Remove `-u enconnex_account_report` if still there — we already updated)
+5. Click green ▶
+6. Wait for `HTTP service running on ...:8069`
+7. Open browser: http://localhost:8069
+
+## Reply
+
+1. Output of the diagnostic command
+2. If you ran Fix 1 or Fix 2, output of that
+
+Once `psql -U odoo -l` lists your databases (`enconnex_dev`, `bytedance_dev`), Postgres is healthy and we can proceed.
