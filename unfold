@@ -1,1 +1,74 @@
 
+Found the problem. Critical issue:
+
+```
+map auto_home   0Bi  0Bi  0Bi  100%
+```
+
+**Your disk is 100% FULL.** That's why Postgres can't write — no space to create files. The log file doesn't even exist because Postgres couldn't write it.
+
+This is why everything is failing.
+
+## Free up space — run this one command
+
+```bash
+brew services stop postgresql@15 && rm -rf ~/Library/Caches/* && rm -rf ~/Library/Application\ Support/Caches/* && brew cleanup --prune=all && pip cache purge 2>/dev/null ; npm cache clean --force 2>/dev/null ; df -h / | tail -2
+```
+
+This:
+1. Stops Postgres (safe shutdown)
+2. Clears user caches
+3. Cleans Homebrew old downloads
+4. Clears pip cache
+5. Clears npm cache
+6. Shows new disk space
+
+Should free 5-20 GB depending on how much accumulated.
+
+## Then check space
+
+```bash
+df -h /
+```
+
+Look at the "Avail" column. Need at least 5GB free for Odoo + Postgres to work properly.
+
+## Then restart Postgres
+
+```bash
+brew services start postgresql@15 && sleep 3 && psql -U odoo -l
+```
+
+Should list databases. If yes → ✅ restart Odoo in PyCharm.
+
+## If still no space after cleanup
+
+You may need to delete heavy things manually:
+- Old Downloads (especially the `odoo19e` folder you used — 2GB)
+- Trash bin (Cmd+Shift+Delete in Finder to empty)
+- iCloud sync files
+
+To find the biggest folders:
+
+```bash
+du -sh ~/Downloads ~/Desktop ~/Documents 2>/dev/null
+```
+
+## Why this happened
+
+You've been:
+- Restoring database dumps (each ~1GB)
+- Running 2 Odoo instances with filestores
+- Pip-installing libraries
+- Creating venv environments
+- Git pulling Odoo source (huge repos)
+
+Easy to fill 50-100GB without noticing.
+
+## Reply
+
+1. Output of cleanup command
+2. Output of `df -h /` after cleanup
+3. Whether Postgres starts after
+
+We'll get back to PR push once disk space is fixed.
