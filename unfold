@@ -245,3 +245,8 @@ Export Partner Ledger → check Excel headers: row 3 should now show "Partner Na
 - ✅ All working after restart → final commit + push
 - ❌ Menu wrong location → I'll fix
 - ❌ Header still blank → screenshot
+
+
+ls -la ~/Projects/Enconnex/custom/enconnex_account_report/views/partner_ledger_flat_export_views.xml && \
+grep -c "Exports" ~/Projects/Enconnex/custom/enconnex_account_report/views/partner_ledger_flat_export_views.xml && \
+grep -c "Invoice" ~/Projects/Enconnex/custom/enconnex_account_report/models/partner_ledger_flat_export.py
