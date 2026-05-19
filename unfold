@@ -1,1 +1,5 @@
-sed -n '155,175p' ~/Projects/Enconnex/custom/enconnex_account_report/models/partner_ledger_flat_export.py
+cd ~/Projects/Enconnex/custom/enconnex_account_report && \
+sed -i '' 's|parent="account_reports.menu_action_account_report_partner_ledger"|parent="account.account_reports_partners_reports_menu"|' views/partner_ledger_flat_export_views.xml && \
+sed -i '' 's|sequence="50"|sequence="100"|' views/partner_ledger_flat_export_views.xml && \
+sed -i '' 's|cell_b = ws.cell(row=r, column=2).value|cell_b = ws.cell(row=r, column=3).value|' models/partner_ledger_flat_export.py && \
+echo "✅ Done. Now in PyCharm: stop Odoo, ensure Parameters has -u enconnex_account_report, click ▶"
