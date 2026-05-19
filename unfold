@@ -1,11 +1,1 @@
-echo "=== Current menu parent in our XML ===" && \
-grep "parent=" ~/Projects/Enconnex/custom/enconnex_account_report/views/partner_ledger_flat_export_views.xml && \
-echo "" && \
-echo "=== Current sequence ===" && \
-grep "sequence=" ~/Projects/Enconnex/custom/enconnex_account_report/views/partner_ledger_flat_export_views.xml && \
-echo "" && \
-echo "=== Available menu IDs for partner reports ===" && \
-psql -U odoo -d enconnex_dev -P pager=off -t -c "SELECT module || '.' || name FROM ir_model_data WHERE model='ir.ui.menu' AND (name ILIKE '%partner%ledger%' OR name ILIKE '%aged%' OR name ILIKE '%partner%report%') ORDER BY name;" && \
-echo "" && \
-echo "=== Python Invoice header structure (lines around) ===" && \
-grep -n "header_row\|hc =\|ic =\|Invoice\|if header_row" ~/Projects/Enconnex/custom/enconnex_account_report/models/partner_ledger_flat_export.py | head -20
+sed -n '155,175p' ~/Projects/Enconnex/custom/enconnex_account_report/models/partner_ledger_flat_export.py
