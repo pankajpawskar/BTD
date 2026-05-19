@@ -126,3 +126,7 @@ Once Postgres works (test with `psql -U odoo -l` showing your databases):
 2. If you ran Fix 1 or Fix 2, output of that
 
 Once `psql -U odoo -l` lists your databases (`enconnex_dev`, `bytedance_dev`), Postgres is healthy and we can proceed.
+
+
+
+brew services stop postgresql@15 ; sleep 2 ; pkill -9 postgres 2>/dev/null ; sleep 2 ; rm -f /opt/homebrew/var/postgresql@15/postmaster.pid && brew services start postgresql@15 && sleep 5 && psql -U odoo -l
