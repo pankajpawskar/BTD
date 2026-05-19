@@ -324,3 +324,6 @@ echo "=== Verify menu parent exists ===" && \
 psql -U odoo -d enconnex_dev -P pager=off -c "SELECT module || '.' || name FROM ir_model_data WHERE model='ir.ui.menu' AND module='account_reports' AND name LIKE '%partner%';" && \
 \
 echo "=== DONE. In PyCharm: stop Odoo, ensure Parameters has -u enconnex_account_report, then run ==="
+
+
+psql -U odoo -d enconnex_dev -P pager=off -t -c "SELECT module || '.' || name FROM ir_model_data WHERE model='ir.ui.menu' AND module='account_reports' AND name LIKE '%partner%';"
