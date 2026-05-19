@@ -327,3 +327,9 @@ echo "=== DONE. In PyCharm: stop Odoo, ensure Parameters has -u enconnex_account
 
 
 psql -U odoo -d enconnex_dev -P pager=off -t -c "SELECT module || '.' || name FROM ir_model_data WHERE model='ir.ui.menu' AND module='account_reports' AND name LIKE '%partner%';"
+
+
+cd ~/Projects/Enconnex/custom/enconnex_account_report && \
+sed -i '' 's|parent="account_reports.menu_account_reports_partners_reports"|parent="account_reports.menu_action_account_report_partner_ledger"|' views/partner_ledger_flat_export_views.xml && \
+grep "parent=" views/partner_ledger_flat_export_views.xml && \
+echo "✅ Parent fixed - menu will appear next to Partner Ledger"
