@@ -152,3 +152,8 @@ echo "Done. In PyCharm: stop Odoo, restart with -u enconnex_account_report"
 
 
 grep -A 2 "INVOICE_PATTERNS\|looks_like_invoice_ref\|^[A-Z]" ~/Projects/Enconnex/custom/enconnex_account_report/models/partner_ledger_flat_export.py | head -30
+
+
+grep -A 2 "INVOICE_PATTERNS\|looks_like_invoice_ref\|^[A-Z]" ~/Projects/Enconnex/custom/enconnex_account_report/models/partner_ledger_flat_export.py | head -30
+
+grep -c "INVOICE_PATTERNS" ~/Projects/Enconnex/custom/enconnex_account_report/models/partner_ledger_flat_export.py
