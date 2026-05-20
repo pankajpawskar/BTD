@@ -196,3 +196,118 @@ Open http://localhost:8069
 **Right now:** paste output of Step 1 (iTerm command). Don't do Step 2 until I confirm Step 1 is good.
 
 We're going slow so we don't break anything.
+
+
+All in **iTerm**.
+
+## Step 1 — check what changed
+
+```bash
+cd ~/Projects/Enconnex/custom && git status
+```
+
+Should show:
+- `enconnex_account_report/__init__.py`
+- `enconnex_account_report/__manifest__.py`
+- `enconnex_account_report/models/__init__.py`
+- `enconnex_account_report/models/partner_ledger_flat_export.py` (new)
+- `enconnex_account_report/views/partner_ledger_flat_export_views.xml` (new)
+- `enconnex_account_report/security/ir.model.access.csv` (new)
+
+Paste output here so I can verify nothing unexpected.
+
+## Step 2 — once verified, commit + push
+
+```bash
+cd ~/Projects/Enconnex/custom && \
+git add enconnex_account_report/ && \
+git commit -m "Add Exports menu for partner reports with flat XLSX output
+
+New menu under Accounting > Reporting > Partner Reports called 'Exports'.
+Opens a wizard to export Partner Ledger, Aged Receivable, or Aged Payable
+as Excel with a dedicated Partner Name column on the left and Invoice
+column header.
+
+Uses Odoo's native export_to_xlsx so column structure and totals match
+the standard reports exactly. Post-processes the file to insert Partner
+Name column, tag each data row with partner, and remove partner-header
+separator rows.
+
+Existing PDF/XLSX exports are untouched.
+
+Note: Disabled legacy imports for models/account_report.py and
+account_report_expanded.py - they contained Odoo 14 API code that
+doesn't load in Odoo 18 (account.aged.payable model removed). Files
+preserved on disk for reference." && \
+git push origin feature/expanded-partner-report-export
+```
+
+## Step 3 — open PR (browser)
+
+1. Go to: https://github.com/raghuchandra22/psin-enconnexerp
+2. Yellow banner "Compare & pull request" → click
+3. ⚠️ **Base branch: `Sandbox-18`** (NOT `main`)
+4. Title:
+   ```
+   Add Exports menu for partner reports with flat XLSX output
+   ```
+5. Description (paste this):
+   ```
+   ## What
+   New "Exports" menu item under Accounting → Reporting → Partner Reports.
+   Opens a wizard to export Partner Ledger, Aged Receivable, or Aged Payable
+   as Excel with a dedicated Partner Name column on the left.
+
+   ## Why
+   Default XLSX export shows partner name only as a section header, making
+   the file hard to use for pivot tables or filtering by partner. The
+   Exports wizard adds Partner Name as a column value on every row.
+
+   ## How
+   - Uses Odoo's native account.report.export_to_xlsx(options) so column
+     structure, aging buckets, and totals match the standard reports
+     exactly
+   - Post-processes the XLSX: inserts Partner Name column at A, fills
+     partner name on each data row, removes partner-header separator
+     rows
+   - Existing PDF/XLSX exports completely untouched
+
+   ## Reports supported
+   - Partner Ledger
+   - Aged Receivable
+   - Aged Payable
+
+   ## Tested locally
+   - Menu appears in correct location (under Partner Reports section, after
+     Aged Payable)
+   - All 3 reports export successfully
+   - Partner Name column appears with values on every transaction row
+   - Invoice column header shows correctly
+   - Native PDF/XLSX exports still work as before
+
+   ## Note for reviewer
+   While working on this, I noticed `models/account_report.py` contains
+   legacy Odoo 14 API code (`account.aged.payable`, `account.aged.receivable`)
+   that fails to load in Odoo 18 — those models were removed in Odoo 16+. I
+   disabled the import in `models/__init__.py` so the registry can load.
+   The file is preserved on disk. Cleanup of that legacy code can be done
+   in a separate task if desired.
+   ```
+6. Request senior review
+7. Click **Create pull request**
+
+## Step 4 — clean up Run Config (PyCharm, after PR opened)
+
+In **PyCharm**:
+- Edit Configurations → Enconnex Odoo 18 → Parameters
+- Change back to: `-c odoo.conf -d enconnex_dev`
+- Remove the `-u enconnex_account_report` part
+- Apply → OK
+
+So future restarts are fast (no module update each time).
+
+## Reply
+
+1. First: paste `git status` output (Step 1) so I verify before commit
+2. Then proceed to Step 2 commit/push
+3. Then ✅ "PR opened"
