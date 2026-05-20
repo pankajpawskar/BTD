@@ -6,3 +6,120 @@ echo "✅ Done. Now in PyCharm: stop Odoo, ensure Parameters has -u enconnex_acc
 
 
 brew services stop postgresql@15 ; sleep 2 ; pkill -9 postgres 2>/dev/null ; sleep 2 ; rm -f /opt/homebrew/var/postgresql@15/postmaster.pid && brew services start postgresql@15 && sleep 5 && psql -U odoo -l
+
+Two separate problems:
+
+1. **PyCharm shows old Odoo as "still running"** — that's why stop button does nothing and you get "Address already in use" (port 8069 still held by previous process)
+2. **Files might not be edited** — we'll verify after restart
+
+## ONE command to start your day cleanly (run this in iTerm)
+
+Save this. Run it every morning OR after any "PyCharm seems stuck" issue:
+
+```bash
+echo "=== Killing any stuck Odoo processes ===" && \
+lsof -ti:8069 | xargs kill -9 2>/dev/null ; \
+lsof -ti:8070 | xargs kill -9 2>/dev/null ; \
+pkill -9 -f "odoo-bin" 2>/dev/null ; \
+sleep 2 && \
+echo "✅ Old Odoo killed" && \
+\
+echo "=== Restarting PostgreSQL cleanly ===" && \
+brew services stop postgresql@15 2>/dev/null ; \
+sleep 2 && \
+pkill -9 postgres 2>/dev/null ; \
+sleep 1 && \
+rm -f /opt/homebrew/var/postgresql@15/postmaster.pid && \
+brew services start postgresql@15 && \
+sleep 5 && \
+\
+echo "=== Verifying Postgres ===" && \
+psql -U odoo -l | head -8 && \
+\
+echo "" && \
+echo "✅ ALL CLEAN. Now open PyCharm → click ▶ to start Odoo"
+```
+
+This:
+1. Kills any Odoo holding ports 8069/8070
+2. Stops Postgres cleanly
+3. Removes stale lock file (the issue from yesterday)
+4. Restarts Postgres
+5. Confirms databases are visible
+
+## Save this for daily use
+
+Make it permanent — paste into a file:
+
+```bash
+cat > ~/start-dev.sh << 'EOF'
+#!/bin/bash
+echo "=== Cleaning Odoo ==="
+lsof -ti:8069 | xargs kill -9 2>/dev/null
+lsof -ti:8070 | xargs kill -9 2>/dev/null
+pkill -9 -f "odoo-bin" 2>/dev/null
+sleep 2
+
+echo "=== Restarting Postgres ==="
+brew services stop postgresql@15 2>/dev/null
+sleep 2
+pkill -9 postgres 2>/dev/null
+sleep 1
+rm -f /opt/homebrew/var/postgresql@15/postmaster.pid
+brew services start postgresql@15
+sleep 5
+
+echo "=== Verify ==="
+psql -U odoo -l | head -8
+
+echo ""
+echo "✅ READY. Open PyCharm → click ▶"
+EOF
+chmod +x ~/start-dev.sh && \
+echo "✅ Script saved. Tomorrow just run: ~/start-dev.sh"
+```
+
+After saving, every morning just run:
+```bash
+~/start-dev.sh
+```
+
+## About PyCharm "stuck" stop button
+
+When `Address already in use` happens — Odoo is still running outside PyCharm's awareness. The kill commands above fix it.
+
+If PyCharm UI stays frozen even after running the script:
+- **PyCharm menu → File → Invalidate Caches → Invalidate and Restart**
+- Or just quit PyCharm (Cmd+Q) and reopen
+
+## About the file edits not applying
+
+After running the startup script, do this in iTerm to verify the edits ARE on disk:
+
+```bash
+grep -E "parent=|sequence=" ~/Projects/Enconnex/custom/enconnex_account_report/views/partner_ledger_flat_export_views.xml
+```
+
+Expected output:
+```
+parent="account.account_reports_partners_reports_menu"
+sequence="100"/>
+```
+
+If you see this → files are correct, just need to restart Odoo with `-u enconnex_account_report` to load them
+If you see old values (`sequence="50"` or old parent) → the sed didn't run, paste output and I'll redo
+
+## Tomorrow's flow
+
+1. Open Mac
+2. Open iTerm
+3. Run `~/start-dev.sh`
+4. Wait for "✅ READY"
+5. Open PyCharm
+6. Click ▶ (with `-u enconnex_account_report` still in Parameters from last edit)
+7. Wait for `HTTP service running`
+8. Open browser → test
+
+Then commit + push if working.
+
+Reply with what `grep -E` shows when you get back to this task.
