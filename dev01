@@ -1,23 +1,140 @@
-cd ~/Projects/Enconnex/custom/enconnex_account_report && \
-python3 << 'PYFIX'
+cat > ~/Projects/Enconnex/custom/enconnex_account_report/models/partner_ledger_flat_export.py << 'PYEOF'
+# -*- coding: utf-8 -*-
+"""Flat XLSX export wizard for Partner Ledger, Aged Receivable, Aged Payable."""
+import io
 import re
-path = 'models/partner_ledger_flat_export.py'
-with open(path) as f:
-    content = f.read()
+import base64
+from odoo import models, fields, api, _
+from odoo.exceptions import UserError
 
-# Find _flatten_xlsx method and replace
-pattern = re.compile(
-    r'    def _flatten_xlsx\(self, xlsx_bytes\):.*',
-    re.DOTALL
-)
+try:
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+except ImportError:
+    openpyxl = None
 
-new_block = '''    def _flatten_xlsx(self, xlsx_bytes):
-        """Post-process Odoo's native XLSX. Detects partner-header rows
-        by looking at the col A label format instead of relying on
-        numeric subtotals (which can be empty for zero-balance partners).
-        """
-        import re as _re
-        from openpyxl.styles import Font, PatternFill, Alignment
+
+REPORT_XMLID = {
+    'partner_ledger': 'account_reports.partner_ledger_report',
+    'aged_receivable': 'account_reports.aged_receivable_report',
+    'aged_payable': 'account_reports.aged_payable_report',
+}
+
+
+# Patterns that identify INVOICE / MOVE references (NOT partner names)
+INVOICE_PATTERNS = [
+    re.compile(r'^[A-Z]{2,6}\d?\s*/\d{4}/'),   # INV/2026/, BNK2 /2022/, RINV/, CPAY /, MISC/, RBILL/
+    re.compile(r'^INV\d+'),                     # INV5084772
+    re.compile(r'^\d{6,}'),                     # 1122932063, 60085279, 821333286, 654072
+    re.compile(r'^\d+-\d+'),                    # 114-3129776-...
+    re.compile(r'^S\d{6,}'),                    # S02753620
+    re.compile(r'^[A-Z]{2,}\d+\s*\(SAL'),       # 25625506B (SAL...)
+]
+
+
+def _looks_like_invoice_ref(text):
+    """Return True if `text` looks like an invoice/move reference, not a partner name."""
+    for pat in INVOICE_PATTERNS:
+        if pat.search(text):
+            return True
+    return False
+
+
+class PartnerLedgerFlatExportWizard(models.TransientModel):
+    _name = 'partner.ledger.flat.export.wizard'
+    _description = 'Flat Partner Report Export Wizard'
+
+    report_type = fields.Selection([
+        ('partner_ledger', 'Partner Ledger'),
+        ('aged_receivable', 'Aged Receivable'),
+        ('aged_payable', 'Aged Payable'),
+    ], string='Report', required=True, default='partner_ledger')
+
+    date_from = fields.Date(string='Date From')
+    date_to = fields.Date(string='Date To', required=True,
+                          default=fields.Date.context_today)
+    company_id = fields.Many2one(
+        'res.company', string='Company',
+        default=lambda self: self.env.company)
+
+    file_data = fields.Binary(string='File', readonly=True)
+    file_name = fields.Char(string='File Name', readonly=True)
+
+    def action_generate(self):
+        self.ensure_one()
+        if not openpyxl:
+            raise UserError(_('Python library openpyxl is not installed.'))
+
+        xmlid = REPORT_XMLID.get(self.report_type)
+        if not xmlid:
+            raise UserError(_('Unknown report type: %s') % self.report_type)
+        report = self.env.ref(xmlid)
+
+        date_to = self.date_to
+        date_from = self.date_from or fields.Date.to_date('1900-01-01')
+
+        if self.report_type == 'partner_ledger':
+            options = report.with_context(
+                allowed_company_ids=self.company_id.ids
+            ).get_options({
+                'date': {
+                    'mode': 'range',
+                    'date_from': date_from.strftime('%Y-%m-%d'),
+                    'date_to': date_to.strftime('%Y-%m-%d'),
+                    'filter': 'custom',
+                },
+                'unfold_all': True,
+            })
+        else:
+            options = report.with_context(
+                allowed_company_ids=self.company_id.ids
+            ).get_options({
+                'date': {
+                    'mode': 'single',
+                    'date_to': date_to.strftime('%Y-%m-%d'),
+                    'filter': 'today',
+                },
+                'unfold_all': True,
+            })
+        options['unfold_all'] = True
+
+        try:
+            native_export = report.export_to_xlsx(options)
+        except Exception as e:
+            raise UserError(_('Native export failed: %s') % str(e))
+
+        file_bytes = None
+        if isinstance(native_export, dict):
+            file_bytes = native_export.get('file_content')
+            if not file_bytes and 'file_data' in native_export:
+                file_bytes = native_export['file_data']
+                if isinstance(file_bytes, str):
+                    file_bytes = base64.b64decode(file_bytes)
+
+        if not file_bytes:
+            raise UserError(_(
+                'Could not extract XLSX bytes from native export.'
+            ))
+
+        flattened_bytes = self._flatten_xlsx(file_bytes)
+
+        filename = '%s_flat_%s.xlsx' % (
+            self.report_type, date_to.strftime('%Y%m%d'),
+        )
+        self.write({
+            'file_data': base64.b64encode(flattened_bytes),
+            'file_name': filename,
+        })
+
+        return {
+            'type': 'ir.actions.act_url',
+            'url': '/web/content/?model=%s&id=%d&field=file_data&filename_field=file_name&download=true' % (
+                self._name, self.id,
+            ),
+            'target': 'self',
+        }
+
+    def _flatten_xlsx(self, xlsx_bytes):
         wb = openpyxl.load_workbook(io.BytesIO(xlsx_bytes))
 
         REPORT_TITLES = {
@@ -27,31 +144,12 @@ new_block = '''    def _flatten_xlsx(self, xlsx_bytes):
             'initial balance', 'total', 'unaffected earnings',
         }
 
-        # Patterns that identify a row as an INVOICE/MOVE reference,
-        # NOT a partner name. If col A matches one of these, the row is
-        # a data row, never a partner header.
-        INVOICE_PATTERNS = [
-            _re.compile(r'^[A-Z]{2,5}\\d?\\s*/\\d{4}/'),     # INV/2026/, BNK2/2026/, RINV/, CPAY /
-            _re.compile(r'^\\d{6,}\\s*\\('),                  # 1122932063 (SAL-..)
-            _re.compile(r'^INV\\d+'),                         # INV5084772
-            _re.compile(r'^MISC\\b', _re.IGNORECASE),         # MISC entries
-            _re.compile(r'^[A-Z]{3,}/\\d+'),                  # BILL/123 style
-            _re.compile(r'^\\d+-\\d+'),                       # 114-3129776...
-        ]
-
-        def looks_like_invoice_ref(text):
-            for pat in INVOICE_PATTERNS:
-                if pat.search(text):
-                    return True
-            return False
-
         for ws in wb.worksheets:
             min_row = ws.min_row
             max_row = ws.max_row
 
             ws.insert_cols(1)
 
-            # Find column-header row
             header_row = None
             for r in range(min_row, min(min_row + 8, max_row + 1)):
                 cell_c = ws.cell(row=r, column=3).value
@@ -65,15 +163,13 @@ new_block = '''    def _flatten_xlsx(self, xlsx_bytes):
             if header_row:
                 hc = ws.cell(row=header_row, column=1, value='Partner Name')
                 hc.font = Font(bold=True)
-                hc.fill = PatternFill(start_color='D9E1F2',
-                                      end_color='D9E1F2',
-                                      fill_type='solid')
+                hc.fill = PatternFill(
+                    start_color='D9E1F2', end_color='D9E1F2', fill_type='solid')
                 hc.alignment = Alignment(horizontal='center')
                 ic = ws.cell(row=header_row, column=2, value='Invoice')
                 ic.font = Font(bold=True)
-                ic.fill = PatternFill(start_color='D9E1F2',
-                                      end_color='D9E1F2',
-                                      fill_type='solid')
+                ic.fill = PatternFill(
+                    start_color='D9E1F2', end_color='D9E1F2', fill_type='solid')
                 ic.alignment = Alignment(horizontal='center')
 
             current_partner = None
@@ -81,8 +177,6 @@ new_block = '''    def _flatten_xlsx(self, xlsx_bytes):
             data_start = (header_row or min_row) + 1
 
             for r in range(data_start, max_row + 1):
-                # After insert: col 2 = original col A (label),
-                # col 3 = original col B (Journal / Invoice Date / NULL)
                 label = ws.cell(row=r, column=2).value
                 second = ws.cell(row=r, column=3).value
 
@@ -98,36 +192,28 @@ new_block = '''    def _flatten_xlsx(self, xlsx_bytes):
                     continue
                 lower = stripped.lower()
 
-                # Report title -> delete
                 if lower in REPORT_TITLES:
                     rows_to_delete.append(r)
                     continue
 
-                # Known subheader -> keep, tag with partner
                 if lower in SUBHEADERS:
                     if current_partner:
                         ws.cell(row=r, column=1, value=current_partner)
                     continue
 
-                # Does col A LOOK like an invoice/move reference?
-                is_invoice_ref = looks_like_invoice_ref(stripped)
-
-                # Is col B empty?
+                is_invoice_ref = _looks_like_invoice_ref(stripped)
                 is_empty_second = (
                     second is None
                     or (isinstance(second, str) and not second.strip())
                 )
 
                 if is_invoice_ref:
-                    # Definitely a data row, regardless of col B
                     if current_partner:
                         ws.cell(row=r, column=1, value=current_partner)
                 elif is_empty_second:
-                    # Not an invoice ref + col B empty -> partner header
                     current_partner = stripped
                     rows_to_delete.append(r)
                 else:
-                    # Col B has value (data row)
                     if current_partner:
                         ws.cell(row=r, column=1, value=current_partner)
 
@@ -140,20 +226,10 @@ new_block = '''    def _flatten_xlsx(self, xlsx_bytes):
         wb.save(out)
         out.seek(0)
         return out.read()
-'''
-
-content = pattern.sub(new_block, content)
-with open(path, 'w') as f:
-    f.write(content)
-print("OK: pattern-based invoice ref detection added")
-PYFIX
-echo "Done. In PyCharm: stop Odoo, restart with -u enconnex_account_report"
-
-
-
-grep -A 2 "INVOICE_PATTERNS\|looks_like_invoice_ref\|^[A-Z]" ~/Projects/Enconnex/custom/enconnex_account_report/models/partner_ledger_flat_export.py | head -30
-
-
-grep -A 2 "INVOICE_PATTERNS\|looks_like_invoice_ref\|^[A-Z]" ~/Projects/Enconnex/custom/enconnex_account_report/models/partner_ledger_flat_export.py | head -30
-
-grep -c "INVOICE_PATTERNS" ~/Projects/Enconnex/custom/enconnex_account_report/models/partner_ledger_flat_export.py
+PYEOF
+echo "" && \
+echo "=== Verify ===" && \
+grep -c "INVOICE_PATTERNS" ~/Projects/Enconnex/custom/enconnex_account_report/models/partner_ledger_flat_export.py && \
+echo "(should be 2 above)" && \
+echo "" && \
+echo "✅ File written. Now in PyCharm: stop Odoo, ensure -u enconnex_account_report in Parameters, click ▶"
