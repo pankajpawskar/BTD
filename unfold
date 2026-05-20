@@ -122,4 +122,77 @@ If you see old values (`sequence="50"` or old parent) → the sed didn't run, pa
 
 Then commit + push if working.
 
-Reply with what `grep -E` shows when you get back to this task.
+Reply with what `grep -E` shows when y
+ou get back to this task.
+
+Got it. Now step by step.
+
+## Step 1 — verify the cleanup actually worked (iTerm)
+
+Run this in **iTerm**:
+
+```bash
+echo "=== Postgres status ===" && \
+brew services list | grep postgres && \
+echo "" && \
+echo "=== Databases ===" && \
+psql -U odoo -l | head -10 && \
+echo "" && \
+echo "=== Port 8069 ===" && \
+lsof -ti:8069 || echo "Port free"
+```
+
+Tell me what it shows. Three possible outcomes:
+
+- **Good:** Postgres says "started", databases listed (enconnex_dev appears), Port shows "Port free" → proceed to Step 2
+- **Bad:** Postgres says "error" or databases missing → tell me and I'll fix
+- **Bad:** Port shows a number → something still holding 8069, tell me
+
+## Step 2 — verify our file edits ARE on disk (iTerm)
+
+Run this in **iTerm**:
+
+```bash
+echo "=== XML file: menu parent + sequence ===" && \
+grep -E "parent=|sequence=" ~/Projects/Enconnex/custom/enconnex_account_report/views/partner_ledger_flat_export_views.xml && \
+echo "" && \
+echo "=== Python file: header detection column ===" && \
+grep -n "cell_b = ws.cell" ~/Projects/Enconnex/custom/enconnex_account_report/models/partner_ledger_flat_export.py
+```
+
+I'm looking for:
+- `parent="account.account_reports_partners_reports_menu"`
+- `sequence="100"`
+- `cell_b = ws.cell(row=r, column=3).value` (column should be 3, not 2)
+
+If all 3 match → files correct, proceed to Step 3
+If any wrong → tell me what shows, I'll fix
+
+## Step 3 — start Odoo (PyCharm)
+
+In **PyCharm**:
+1. Top-right → Edit Configurations → Enconnex Odoo 18
+2. **Parameters** field: must be exactly `-c odoo.conf -d enconnex_dev -u enconnex_account_report`
+3. Apply → OK
+4. Click green ▶
+5. Wait for `HTTP service running on ...:8069` at the bottom
+
+## Step 4 — test in browser (Chrome/browser)
+
+Open http://localhost:8069
+
+1. Login: admin / admin
+2. Go to **Accounting → Reporting**
+3. Look under "Partner Reports" section:
+   - Partner Ledger (should be clickable)
+   - Aged Receivable
+   - Aged Payable
+   - **Exports** ← should appear at bottom
+4. Click Exports → wizard opens → pick Partner Ledger → Generate Excel
+5. Open downloaded Excel → row 3 should show: `Partner Name | Invoice | Journal | Account | Invoice Date | Due Date | Matching | Debit | Credit | Amount Currency`
+
+## What I need from you
+
+**Right now:** paste output of Step 1 (iTerm command). Don't do Step 2 until I confirm Step 1 is good.
+
+We're going slow so we don't break anything.
