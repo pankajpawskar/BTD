@@ -311,3 +311,49 @@ So future restarts are fast (no module update each time).
 1. First: paste `git status` output (Step 1) so I verify before commit
 2. Then proceed to Step 2 commit/push
 3. Then ✅ "PR opened"
+
+
+
+
+
+Got it. Senior wants the module as a zip file instead of merging. Common ask for review before merge.
+
+## One command — creates the zip (iTerm)
+
+```bash
+cd ~/Projects/Enconnex/custom && \
+zip -r ~/Desktop/enconnex_account_report.zip enconnex_account_report -x "*__pycache__*" "*.pyc" "*.DS_Store" && \
+echo "✅ Zip created at ~/Desktop/enconnex_account_report.zip" && \
+ls -lh ~/Desktop/enconnex_account_report.zip
+```
+
+## What this does
+
+- Creates `enconnex_account_report.zip` on your **Desktop**
+- Includes the whole module folder (Python, XML, manifest, security, etc.)
+- Excludes `__pycache__/`, `.pyc`, and `.DS_Store` (junk files seniors don't want to see)
+
+## Then send to senior
+
+Open Finder → Desktop → drag `enconnex_account_report.zip` into Teams chat to your senior.
+
+## ⚠️ Also — about the PR you already pushed
+
+Since senior said "don't push to sandbox", check what state your PR is in:
+
+1. Go to https://github.com/raghuchandra22/psin-enconnexerp/pulls
+2. Find your PR (`Add Exports menu for partner reports...`)
+3. Look at the status:
+   - If still **Open / awaiting review** → fine, leave it
+   - If accidentally **Merged** → tell senior immediately (but Sandbox is dev branch, no real harm)
+
+Your push went to the FEATURE BRANCH only, not Sandbox-18. Pushing a feature branch is safe. Only **merging the PR** would actually update Sandbox-18.
+
+So unless someone clicked "Merge" already, you're fine.
+
+## Reply
+
+- ✅ "Zip created, sent to senior" → done
+- ❌ Error during zip → paste output
+
+Once senior approves, you can close the PR (or merge it later when they OK it).
