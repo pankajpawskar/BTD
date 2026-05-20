@@ -1,79 +1,150 @@
-The diagnostic script never finished — Odoo was still starting up when we tried to capture output. That's why no R1/R2/R3 data rows are in the file.
+cd ~/Projects/Enconnex/custom/enconnex_account_report && \
+python3 << 'PYFIX'
+import re
+path = 'models/partner_ledger_flat_export.py'
+with open(path) as f:
+    content = f.read()
 
-I need a different, more reliable approach: dump the native XLSX as actual files, then I can read them properly.
+# Find _flatten_xlsx method and replace
+pattern = re.compile(
+    r'    def _flatten_xlsx\(self, xlsx_bytes\):.*',
+    re.DOTALL
+)
 
-## Run this in iTerm — make sure Odoo is STOPPED in PyCharm first
+new_block = '''    def _flatten_xlsx(self, xlsx_bytes):
+        """Post-process Odoo's native XLSX. Detects partner-header rows
+        by looking at the col A label format instead of relying on
+        numeric subtotals (which can be empty for zero-balance partners).
+        """
+        import re as _re
+        from openpyxl.styles import Font, PatternFill, Alignment
+        wb = openpyxl.load_workbook(io.BytesIO(xlsx_bytes))
 
-```bash
-cd ~/Projects/Enconnex && \
-source .venv/bin/activate && \
-mkdir -p ~/diag && \
-echo "
-import openpyxl, io, base64
-for report_xmlid, fname in [
-    ('account_reports.aged_receivable_report', '/Users/Pankaj.Pawskar/diag/native_aged_receivable.xlsx'),
-    ('account_reports.aged_payable_report', '/Users/Pankaj.Pawskar/diag/native_aged_payable.xlsx'),
-    ('account_reports.partner_ledger_report', '/Users/Pankaj.Pawskar/diag/native_partner_ledger.xlsx'),
-]:
-    report = env.ref(report_xmlid)
-    if 'aged' in report_xmlid:
-        options = report.get_options({'date': {'mode': 'single', 'date_to': '2026-05-18', 'filter': 'today'}, 'unfold_all': True})
-    else:
-        options = report.get_options({'date': {'mode': 'range', 'date_from': '2026-01-01', 'date_to': '2026-05-18', 'filter': 'custom'}, 'unfold_all': True})
-    options['unfold_all'] = True
-    result = report.export_to_xlsx(options)
-    file_bytes = result.get('file_content') if isinstance(result, dict) else None
-    if file_bytes:
-        with open(fname, 'wb') as f:
-            f.write(file_bytes)
-        print('SAVED:', fname)
-" | python3 odoo/odoo-bin shell -c odoo.conf -d enconnex_dev --no-http 2>&1 | grep "SAVED:" && \
-echo "" && \
-echo "=== Files generated ===" && \
-ls -lh ~/diag/
-```
+        REPORT_TITLES = {
+            'aged receivable', 'aged payable', 'partner ledger',
+        }
+        SUBHEADERS = {
+            'initial balance', 'total', 'unaffected earnings',
+        }
 
-**Run in:** iTerm (Odoo must be stopped in PyCharm first)
+        # Patterns that identify a row as an INVOICE/MOVE reference,
+        # NOT a partner name. If col A matches one of these, the row is
+        # a data row, never a partner header.
+        INVOICE_PATTERNS = [
+            _re.compile(r'^[A-Z]{2,5}\\d?\\s*/\\d{4}/'),     # INV/2026/, BNK2/2026/, RINV/, CPAY /
+            _re.compile(r'^\\d{6,}\\s*\\('),                  # 1122932063 (SAL-..)
+            _re.compile(r'^INV\\d+'),                         # INV5084772
+            _re.compile(r'^MISC\\b', _re.IGNORECASE),         # MISC entries
+            _re.compile(r'^[A-Z]{3,}/\\d+'),                  # BILL/123 style
+            _re.compile(r'^\\d+-\\d+'),                       # 114-3129776...
+        ]
 
-## What this does
+        def looks_like_invoice_ref(text):
+            for pat in INVOICE_PATTERNS:
+                if pat.search(text):
+                    return True
+            return False
 
-- Saves the 3 native Odoo XLSX files to `~/diag/`
-- Filters output to show only "SAVED:" lines so we know it worked
-- Lists files at the end
+        for ws in wb.worksheets:
+            min_row = ws.min_row
+            max_row = ws.max_row
 
-Wait for it to complete (1-2 min while Odoo loads inside shell). At the end you should see 3 files listed.
+            ws.insert_cols(1)
 
-## Then dump the structure (iTerm, after first command succeeds)
+            # Find column-header row
+            header_row = None
+            for r in range(min_row, min(min_row + 8, max_row + 1)):
+                cell_c = ws.cell(row=r, column=3).value
+                if cell_c and isinstance(cell_c, str) and cell_c.strip() in (
+                    'Journal', 'Account', 'Invoice Date', 'At Date',
+                    'Reference',
+                ):
+                    header_row = r
+                    break
 
-```bash
-python3 << 'PYREAD'
-import openpyxl
-for path in ['/Users/Pankaj.Pawskar/diag/native_aged_receivable.xlsx',
-             '/Users/Pankaj.Pawskar/diag/native_aged_payable.xlsx',
-             '/Users/Pankaj.Pawskar/diag/native_partner_ledger.xlsx']:
-    wb = openpyxl.load_workbook(path)
-    ws = wb.active
-    print(f'\n========== {path.split("/")[-1]} ==========')
-    print(f'Sheet: {ws.title}, rows: {ws.max_row}, cols: {ws.max_column}')
-    for r in range(1, min(35, ws.max_row + 1)):
-        parts = []
-        for c in range(1, min(11, ws.max_column + 1)):
-            v = ws.cell(row=r, column=c).value
-            if v is None:
-                parts.append('NULL')
-            elif isinstance(v, str):
-                parts.append(repr(v[:35]))
-            else:
-                parts.append(str(v))
-        print(f'R{r}: ' + ' | '.join(parts))
-PYREAD
-```
+            if header_row:
+                hc = ws.cell(row=header_row, column=1, value='Partner Name')
+                hc.font = Font(bold=True)
+                hc.fill = PatternFill(start_color='D9E1F2',
+                                      end_color='D9E1F2',
+                                      fill_type='solid')
+                hc.alignment = Alignment(horizontal='center')
+                ic = ws.cell(row=header_row, column=2, value='Invoice')
+                ic.font = Font(bold=True)
+                ic.fill = PatternFill(start_color='D9E1F2',
+                                      end_color='D9E1F2',
+                                      fill_type='solid')
+                ic.alignment = Alignment(horizontal='center')
 
-**Run in:** iTerm
+            current_partner = None
+            rows_to_delete = []
+            data_start = (header_row or min_row) + 1
 
-## Reply
+            for r in range(data_start, max_row + 1):
+                # After insert: col 2 = original col A (label),
+                # col 3 = original col B (Journal / Invoice Date / NULL)
+                label = ws.cell(row=r, column=2).value
+                second = ws.cell(row=r, column=3).value
 
-Paste output of the SECOND command. It'll show me 35 rows of each report — enough to see multiple partners and find where Enconnex-Rahi sits.
+                if label is None:
+                    continue
+                if not isinstance(label, str):
+                    if current_partner:
+                        ws.cell(row=r, column=1, value=current_partner)
+                    continue
 
-If the first command shows `SAVED:` lines for all 3 files → proceed.
-If it doesn't, paste output and I'll fix.
+                stripped = label.strip()
+                if not stripped:
+                    continue
+                lower = stripped.lower()
+
+                # Report title -> delete
+                if lower in REPORT_TITLES:
+                    rows_to_delete.append(r)
+                    continue
+
+                # Known subheader -> keep, tag with partner
+                if lower in SUBHEADERS:
+                    if current_partner:
+                        ws.cell(row=r, column=1, value=current_partner)
+                    continue
+
+                # Does col A LOOK like an invoice/move reference?
+                is_invoice_ref = looks_like_invoice_ref(stripped)
+
+                # Is col B empty?
+                is_empty_second = (
+                    second is None
+                    or (isinstance(second, str) and not second.strip())
+                )
+
+                if is_invoice_ref:
+                    # Definitely a data row, regardless of col B
+                    if current_partner:
+                        ws.cell(row=r, column=1, value=current_partner)
+                elif is_empty_second:
+                    # Not an invoice ref + col B empty -> partner header
+                    current_partner = stripped
+                    rows_to_delete.append(r)
+                else:
+                    # Col B has value (data row)
+                    if current_partner:
+                        ws.cell(row=r, column=1, value=current_partner)
+
+            for r in sorted(rows_to_delete, reverse=True):
+                ws.delete_rows(r, 1)
+
+            ws.column_dimensions['A'].width = 35
+
+        out = io.BytesIO()
+        wb.save(out)
+        out.seek(0)
+        return out.read()
+'''
+
+content = pattern.sub(new_block, content)
+with open(path, 'w') as f:
+    f.write(content)
+print("OK: pattern-based invoice ref detection added")
+PYFIX
+echo "Done. In PyCharm: stop Odoo, restart with -u enconnex_account_report"
