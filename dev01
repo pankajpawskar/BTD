@@ -10,3 +10,18 @@ git status && \
 echo "" && \
 echo "=== Does standalone module exist? ===" && \
 ls -d enconnex_partner_export 2>/dev/null && echo "YES exists" || echo "NO"
+
+
+cd ~/Projects/Enconnex/custom && \
+git checkout Sandbox-18 && \
+git branch --show-current && \
+echo "" && \
+echo "=== Status ===" && \
+git status --short && \
+echo "" && \
+echo "=== Standalone module check ===" && \
+ls -d enconnex_partner_export 2>/dev/null && echo "exists" || echo "not present" && \
+echo "" && \
+echo "=== Export files in old module ===" && \
+ls enconnex_account_report/models/partner_ledger_flat_export.py 2>/dev/null && echo "exists" || echo "not present"
+
