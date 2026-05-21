@@ -25,3 +25,44 @@ echo "" && \
 echo "=== Export files in old module ===" && \
 ls enconnex_account_report/models/partner_ledger_flat_export.py 2>/dev/null && echo "exists" || echo "not present"
 
+That's old terminal scrollback — those `Sandbox-19` errors already happened (Sandbox-19 doesn't exist for Enconnex, which is correct — Enconnex uses Sandbox-18).
+
+Let me give you fresh commands. Goal: **Option A — fully remove export work, clean Sandbox-18.**
+
+## Step 1 — Run this in iTerm
+
+```bash
+cd ~/Projects/Enconnex/custom && git checkout Sandbox-18 && git branch --show-current
+```
+
+**Run in:** iTerm
+
+It should print `Sandbox-18`. If you get an error, paste it. If it prints `Sandbox-18`, continue to Step 2.
+
+## Step 2 — Run this in iTerm
+
+```bash
+cd ~/Projects/Enconnex/custom && \
+echo "=== MODIFIED/UNTRACKED FILES ===" && \
+git status --short && \
+echo "" && \
+echo "=== Export folders present? ===" && \
+ls -d enconnex_partner_export 2>/dev/null && echo "  ^ standalone module exists" || echo "  standalone module: not present" && \
+ls enconnex_account_report/models/partner_ledger_flat_export.py 2>/dev/null && echo "  ^ export file in old module exists" || echo "  export file: not present"
+```
+
+**Run in:** iTerm
+
+## Reply
+
+Paste output of **both** Step 1 and Step 2.
+
+I need to see exactly what export files exist before I give the removal command. Once I see the list, I'll give you ONE precise command that removes only:
+- The `enconnex_partner_export/` standalone module folder
+- The export files added inside `enconnex_account_report/`
+- Restores `enconnex_account_report/` modified files (`__init__.py`, `__manifest__.py`, `models/__init__.py`) to original Sandbox-18 state
+
+And touches nothing else (the other 70 modules stay safe).
+
+Don't run any removal yet — just Steps 1 and 2, paste output.
+
