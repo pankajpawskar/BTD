@@ -233,3 +233,58 @@ grep -c "INVOICE_PATTERNS" ~/Projects/Enconnex/custom/enconnex_account_report/mo
 echo "(should be 2 above)" && \
 echo "" && \
 echo "✅ File written. Now in PyCharm: stop Odoo, ensure -u enconnex_account_report in Parameters, click ▶"
+
+
+Two parts. All in **iTerm**.
+
+## Part 1 — commit + push to feature branch
+
+```bash
+cd ~/Projects/Enconnex/custom && \
+git add enconnex_account_report/ enconnex_partner_export/ 2>/dev/null ; \
+git add enconnex_account_report/ && \
+git commit -m "Fix partner name detection in Aged reports flat export" && \
+git push origin feature/expanded-partner-report-export
+```
+
+**Run in:** iTerm
+
+## Part 2 — create the custom module zip for senior
+
+This zips the **standalone module** (`enconnex_partner_export`) we created earlier — the one senior wants:
+
+```bash
+cd ~/Projects/Enconnex/custom && \
+ls enconnex_partner_export >/dev/null 2>&1 && \
+zip -r ~/Desktop/enconnex_partner_export.zip enconnex_partner_export -x "*__pycache__*" "*.pyc" "*.DS_Store" && \
+echo "✅ Zip created: ~/Desktop/enconnex_partner_export.zip" && \
+ls -lh ~/Desktop/enconnex_partner_export.zip || \
+echo "❌ enconnex_partner_export folder not found - tell me"
+```
+
+**Run in:** iTerm
+
+## ⚠️ Important note
+
+Earlier we created the new module `enconnex_partner_export` but then kept fixing the bug inside the OLD module `enconnex_account_report`. So the **new standalone module has the OLD buggy code**.
+
+Before zipping for senior, the new module needs the fixed `partner_ledger_flat_export.py`. Run this to sync the fix into it:
+
+```bash
+cp ~/Projects/Enconnex/custom/enconnex_account_report/models/partner_ledger_flat_export.py ~/Projects/Enconnex/custom/enconnex_partner_export/models/partner_ledger_flat_export.py && \
+echo "✅ Latest fixed code copied to standalone module"
+```
+
+**Run in:** iTerm — **run this BEFORE the zip command in Part 2.**
+
+## Correct order
+
+1. Part 1 (commit + push) — iTerm
+2. Copy-fix command (sync latest code to new module) — iTerm
+3. Part 2 (create zip) — iTerm
+4. Send `~/Desktop/enconnex_partner_export.zip` to senior via Teams
+
+## Reply
+
+- ✅ Pushed + zip created → done
+- ❌ Error in any step → paste output
